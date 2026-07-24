@@ -14,4 +14,6 @@
  * limitations under the License.
  */
 
-export * from "./sample-plugin-logo";
+package com.ritense.valtimoplugins.httpclientauthentication
+
+abstract class BaseTest

@@ -7,14 +7,6 @@
         "name": {
             "type": "string",
             "description": "Name"
-        },
-        "apiResult": {
-            "type": "string",
-            "description": "Result from the sample plugin Time API call"
-        },
-        "message": {
-            "type": "string",
-            "description": "Message that was set in the plugin action"
         }
     }
 }

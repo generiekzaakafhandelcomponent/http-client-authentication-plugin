@@ -1,10 +1,10 @@
 # Plugin Documentation
 
-<!-- Use this page to document your plugin. Below is a suggested structure. -->
-
 ## Overview
 
-This is a sample plugin demonstrating an API call action. It fetches data from a time API endpoint.
+The Http Client Authentication plugin provides authentication headers for outbound REST clients. Other plugins
+depend on the `http-client-authentication` `@PluginCategory` and use a configured instance to apply either a bearer
+token or a custom header to a Spring `RestClient.Builder` before making outbound calls.
 
 ## Dependencies
 
@@ -12,7 +12,7 @@ This is a sample plugin demonstrating an API call action. It fetches data from a
 
 ```kotlin
 dependencies {
-    implementation("com.ritense.valtimoplugins:sample-plugin:0.0.1")
+    implementation("com.ritense.valtimoplugins:http-client-authentication:1.0.0")
 }
 ```
 
@@ -21,7 +21,7 @@ dependencies {
 ```json
 {
   "dependencies": {
-    "@valtimo-plugins/sample-plugin": "0.0.1"
+    "@valtimo-plugins/http-client-authentication": "2.0.0"
   }
 }
 ```
@@ -30,18 +30,18 @@ In your `app.module.ts`:
 
 ```typescript
 import {
-    SamplePluginModule, samplePluginSpecification,
-} from '@valtimo-plugins/sample-plugin';
+    HttpClientAuthenticationPluginModule, httpClientAuthenticationPluginSpecification,
+} from '@valtimo-plugins/http-client-authentication';
 
 @NgModule({
     imports: [
-        SamplePluginModule,
+        HttpClientAuthenticationPluginModule,
     ],
     providers: [
         {
             provide: PLUGIN_TOKEN,
             useValue: [
-                samplePluginSpecification,
+                httpClientAuthenticationPluginSpecification,
             ]
         }
     ]
@@ -50,22 +50,36 @@ import {
 
 ## Configuration
 
-List the plugin configuration properties and how to set them.
-
-| Property | Type   | Required | Description                          |
-|----------|--------|----------|--------------------------------------|
-| apiUrl   | string | Yes      | The URL of the time API to call      |
+| Property           | Type   | Required | Description                                                                             |
+|---------------------|--------|----------|-------------------------------------------------------------------------------------------|
+| authenticationType | enum   | Yes      | One of `NONE`, `BEARER`, `HEADER`. Determines which authentication header, if any, is set |
+| authHeaderName     | string | Only for `HEADER` | Name of the header that will carry the secret when `authenticationType` is `HEADER` |
+| authSecret         | string (secret) | Only for `BEARER`/`HEADER` | The bearer token, or the value set on `authHeaderName`                         |
 
 ## Actions
 
-### Time API test action
+This plugin does not expose any process actions (`@PluginAction`). It only implements the `HttpClientAuthenticator`
+interface (`@PluginCategory("http-client-authentication")`), so it is meant to be referenced by other plugins that
+need to authenticate outbound HTTP calls, for example:
 
-Sends a GET request to the configured API URL and returns the timezone response.
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-|           |      |          |             |
+```kotlin
+class SomeOtherPlugin(
+    private val httpClientAuthenticator: HttpClientAuthenticator?
+) {
+    fun callApi(): RestClient {
+        var builder = RestClient.builder()
+        httpClientAuthenticator?.let { builder = it.applyAuth(builder) }
+        return builder.build()
+    }
+}
+```
 
 ## Usage
 
-Explain how to use the plugin in a process, with examples if applicable.
+1. Create a configuration of the Http Client Authentication plugin, choosing an authentication type:
+   - `NONE` — no authentication header is added.
+   - `BEARER` — sets the `Authorization: Bearer <authSecret>` header.
+   - `HEADER` — sets a custom header named `authHeaderName` with value `authSecret`.
+2. In a plugin that performs outbound REST calls, add a `@PluginProperty` of type `HttpClientAuthenticator` so a
+   user can link a configured instance of this plugin to it.
+3. Call `applyAuth(builder)` on the injected `HttpClientAuthenticator` before executing the outbound request.

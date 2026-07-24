@@ -1,5 +1,5 @@
 /*
- * Copyright 2026 Ritense BV, the Netherlands.
+ * Copyright 2015-2026 Ritense BV, the Netherlands.
  *
  * Licensed under EUPL, Version 1.2 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,16 +12,19 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
-import {PluginConfigurationData} from "@valtimo/plugin";
+package com.ritense.valtimoplugins.httpclientauthentication.plugin
 
-interface SamplePluginConfig extends PluginConfigurationData {
-  apiUrl: string;
+import com.ritense.plugin.PluginFactory
+import com.ritense.plugin.service.PluginService
+
+class HttpClientAuthenticationPluginFactory(
+    pluginService: PluginService
+) : PluginFactory<HttpClientAuthenticationPlugin>(pluginService) {
+
+    override fun create(): HttpClientAuthenticationPlugin {
+        return HttpClientAuthenticationPlugin()
+    }
 }
-
-interface SampleActionConfig {
-  message: string;
-}
-
-export {SamplePluginConfig, SampleActionConfig};

@@ -15,7 +15,7 @@
  */
 
 dockerCompose {
-    setProjectName("sample-plugin")
+    setProjectName("http-client-authentication")
     isRequiredBy(project.tasks.test)
 
     tasks.test {

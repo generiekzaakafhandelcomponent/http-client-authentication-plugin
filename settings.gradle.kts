@@ -1,4 +1,4 @@
-rootProject.name = "gzac-plugin-template"
+rootProject.name = "http-client-authentication-plugin"
 include(
     "backend",
     "backend:app",

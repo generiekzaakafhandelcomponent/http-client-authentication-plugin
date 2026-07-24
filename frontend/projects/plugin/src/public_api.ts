@@ -15,11 +15,10 @@
  */
 
 /*
- * Public API Surface of sample-plugin
+ * Public API Surface of http-client-authentication
  */
 
-export * from "./lib/plugins/sample-plugin/models";
-export * from "./lib/plugins/sample-plugin/sample-plugin-module";
-export * from "./lib/plugins/sample-plugin/sample-plugin.specification";
-export * from "./lib/plugins/sample-plugin/components/sample-plugin-configuration/sample-plugin-configuration.component";
-export * from "./lib/plugins/sample-plugin/components/sample-action-configuration/sample-action-configuration.component";
+export * from "./lib/plugins/http-client-authentication/models";
+export * from "./lib/plugins/http-client-authentication/http-client-authentication.plugin.module";
+export * from "./lib/plugins/http-client-authentication/http-client-authentication.plugin.specification";
+export * from "./lib/plugins/http-client-authentication/components/http-client-authentication-plugin-configuration.component";

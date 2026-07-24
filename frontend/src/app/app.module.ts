@@ -98,7 +98,10 @@ import {TranslateLoader, TranslateModule} from "@ngx-translate/core";
 import {environment} from "../environments/environment";
 import {registerDocumentenApiFormioUploadComponent, ZgwModule} from "@valtimo/zgw";
 
-import {SamplePluginModule, samplePluginSpecification,} from "@valtimo-plugins/sample-plugin";
+import {
+  HttpClientAuthenticationPluginModule,
+  httpClientAuthenticationPluginSpecification,
+} from "@valtimo-plugins/http-client-authentication";
 
 export function tabsFactory() {
   return new Map<string, object>([
@@ -157,8 +160,8 @@ export function tabsFactory() {
     ProcessManagementModule,
     ProcessModule,
     ReactiveFormsModule,
+    HttpClientAuthenticationPluginModule,
     ResourceModule,
-    SamplePluginModule,
     SecurityModule,
     SseModule,
     SwaggerModule,
@@ -190,7 +193,7 @@ export function tabsFactory() {
         objecttypenApiPluginSpecification,
         openNotificatiesPluginSpecification,
         openZaakPluginSpecification,
-        samplePluginSpecification,
+        httpClientAuthenticationPluginSpecification,
         zakenApiPluginSpecification,
       ],
     },

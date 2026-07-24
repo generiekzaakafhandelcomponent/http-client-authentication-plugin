@@ -1,5 +1,5 @@
 /*
- * Copyright 2026 Ritense BV, the Netherlands.
+ * Copyright 2015-2026 Ritense BV, the Netherlands.
  *
  * Licensed under EUPL, Version 1.2 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,19 +12,27 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
 import {NgModule} from "@angular/core";
 import {CommonModule} from "@angular/common";
 import {PluginTranslatePipeModule} from "@valtimo/plugin";
-import {FormModule, InputModule as ValtimoInputModule} from "@valtimo/components";
-import {SamplePluginConfigurationComponent} from "./components/sample-plugin-configuration/sample-plugin-configuration.component";
-import {SampleActionConfigurationComponent} from "./components/sample-action-configuration/sample-action-configuration.component";
+import {FormModule, InputModule, RadioModule} from "@valtimo/components";
+import {
+    HttpClientAuthenticationPluginConfigurationComponent
+} from "./components/http-client-authentication-plugin-configuration.component";
 
 @NgModule({
-  declarations: [SamplePluginConfigurationComponent, SampleActionConfigurationComponent],
-  imports: [CommonModule, PluginTranslatePipeModule, FormModule, ValtimoInputModule],
-  exports: [SamplePluginConfigurationComponent, SampleActionConfigurationComponent],
+    declarations: [HttpClientAuthenticationPluginConfigurationComponent],
+    imports: [
+        CommonModule,
+        PluginTranslatePipeModule,
+        FormModule,
+        InputModule,
+        RadioModule,
+    ],
+    exports: [HttpClientAuthenticationPluginConfigurationComponent]
 })
-export class SamplePluginModule {
+export class HttpClientAuthenticationPluginModule {
 }

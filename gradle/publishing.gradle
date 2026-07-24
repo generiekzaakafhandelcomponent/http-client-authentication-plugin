@@ -53,9 +53,9 @@ publishing {
                     }
                 }
                 scm {
-                    connection = "git@github.com:generiekzaakafhandelcomponent/gzac-plugin-template.git"
-                    developerConnection = "git@github.com:generiekzaakafhandelcomponent/gzac-plugin-template.git"
-                    url = "https://github.com/generiekzaakafhandelcomponent/gzac-plugin-template"
+                    connection = "git@github.com:Ayub-ritense/http-client-authentication-plugin.git"
+                    developerConnection = "git@github.com:Ayub-ritense/http-client-authentication-plugin.git"
+                    url = "https://github.com/Ayub-ritense/http-client-authentication-plugin"
                 }
             }
 

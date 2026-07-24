@@ -23,8 +23,8 @@ pluginManager.withPlugin("maven-publish") {
                 version = pluginProperties.pluginVersion
 
                 pom {
-                    name = "Sample plugin module"
-                    description = "A module containing a sample plugin"
+                    name = "Http Client Authentication plugin module"
+                    description = "A module containing the Http Client Authentication plugin"
                     developers {
                         developer {
                             id = "team-valtimo"

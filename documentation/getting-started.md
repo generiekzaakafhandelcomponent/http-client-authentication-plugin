@@ -1,9 +1,29 @@
 # Getting Started
 
-1. Copy this project
-2. Rename the module from `sample-plugin` to your plugin name
-3. Update package names, class names, and plugin keys
-4. Add your own plugin logic and actions
+## Backend
+
+```kotlin
+dependencies {
+    implementation("com.ritense.valtimoplugins:http-client-authentication:2.0.0")
+}
+```
+
+## Frontend
+
+```json
+{
+  "dependencies": {
+    "@valtimo-plugins/http-client-authentication": "2.0.0"
+  }
+}
+```
+
+Register `HttpClientAuthenticationPluginModule` and `httpClientAuthenticationPluginSpecification` in your
+`app.module.ts` as shown in the [Plugin](plugin.md) documentation.
+
+## Local development
+
+See [Example Application](example-application.md) for running this plugin against a local GZAC instance.
 
 For more information on how to build a plugin, see
 the [Custom Plugin Definition](https://docs.valtimo.nl/features/plugins/plugins/custom-plugin-definition) documentation.
