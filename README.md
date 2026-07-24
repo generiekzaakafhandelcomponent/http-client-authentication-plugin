@@ -16,4 +16,4 @@ Follow the [Getting Started](documentation/getting-started.md) guide for setup a
 
 ## Contact
 
--- naam contactpersoon (bedrijfsnaam)
+Ayub Abdulkader (Ritense)
