@@ -12,7 +12,7 @@ token or a custom header to a Spring `RestClient.Builder` before making outbound
 
 ```kotlin
 dependencies {
-    implementation("com.ritense.valtimoplugins:http-client-authentication:1.0.0")
+    implementation("com.ritense.valtimoplugins:http-client-authentication:2.0.0")
 }
 ```
 
