@@ -1,17 +1,17 @@
 {
     "name": "@valtimo-plugins/http-client-authentication",
     "license": "EUPL-1.2",
-    "version": "2.1.0",
+    "version": "2.1.0-V12",
     "scripts": {
         "build": "ng build @valtimo-plugins/http-client-authentication",
         "watch": "ng build @valtimo-plugins/http-client-authentication --watch"
     },
     "peerDependencies": {
-        "@angular/common": "19.2.20",
-        "@angular/core": "19.2.20"
+        "@angular/common": "17.3.12",
+        "@angular/core": "17.3.12"
     },
     "dependencies": {
-        "@angular/forms": "19.2.20",
+        "@angular/forms": "17.3.12",
         "tslib": "2.8.1"
     }
 }
