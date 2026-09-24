@@ -8,7 +8,7 @@ All commands below should be run from the **project root** directory.
 
 ### Prerequisites
 
-- Java 21
+- Java 17
 - [Docker (Desktop)](https://www.docker.com/products/docker-desktop/)
 
 ### Start docker
