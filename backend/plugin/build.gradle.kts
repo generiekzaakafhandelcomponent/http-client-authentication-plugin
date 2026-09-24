@@ -36,7 +36,7 @@ dependencies {
     compileOnly("org.springframework.boot:spring-boot-autoconfigure")
     compileOnly("org.springframework.boot:spring-boot-starter-web")
 
-    compileOnly("io.github.oshai:kotlin-logging:$kotlinLoggingVersion")
+    implementation("io.github.oshai:kotlin-logging:$kotlinLoggingVersion")
 
     // Testing
     testImplementation("com.ritense.valtimo:plugin-valtimo")
