@@ -118,49 +118,49 @@
                 [required]="false"
         >
         </v-input>
+        <hr/>
+        <p><strong>{{ 'mtlsSection' | pluginTranslate: pluginId | async }}</strong></p>
+        <v-input
+                name="keystorePath"
+                [title]="'keystorePath' | pluginTranslate: pluginId | async"
+                [margin]="true"
+                [fullWidth]="true"
+                [defaultValue]="obs.prefill?.keystorePath"
+                [disabled]="obs.disabled"
+                [required]="false"
+        >
+        </v-input>
+        <v-input
+                name="keystoreSecret"
+                type="password"
+                [title]="'keystoreSecret' | pluginTranslate: pluginId | async"
+                [margin]="true"
+                [fullWidth]="true"
+                [defaultValue]="obs.prefill?.keystoreSecret"
+                [disabled]="obs.disabled"
+                [required]="false"
+        >
+        </v-input>
+        <v-input
+                name="truststorePath"
+                [title]="'truststorePath' | pluginTranslate: pluginId | async"
+                [margin]="true"
+                [fullWidth]="true"
+                [defaultValue]="obs.prefill?.truststorePath"
+                [disabled]="obs.disabled"
+                [required]="false"
+        >
+        </v-input>
+        <v-input
+                name="truststoreSecret"
+                type="password"
+                [title]="'truststoreSecret' | pluginTranslate: pluginId | async"
+                [margin]="true"
+                [fullWidth]="true"
+                [defaultValue]="obs.prefill?.truststoreSecret"
+                [disabled]="obs.disabled"
+                [required]="false"
+        >
+        </v-input>
     </ng-container>
-    <hr/>
-    <p><strong>{{ 'mtlsSection' | pluginTranslate: pluginId | async }}</strong></p>
-    <v-input
-            name="keystorePath"
-            [title]="'keystorePath' | pluginTranslate: pluginId | async"
-            [margin]="true"
-            [fullWidth]="true"
-            [defaultValue]="obs.prefill?.keystorePath"
-            [disabled]="obs.disabled"
-            [required]="false"
-    >
-    </v-input>
-    <v-input
-            name="keystoreSecret"
-            type="password"
-            [title]="'keystoreSecret' | pluginTranslate: pluginId | async"
-            [margin]="true"
-            [fullWidth]="true"
-            [defaultValue]="obs.prefill?.keystoreSecret"
-            [disabled]="obs.disabled"
-            [required]="false"
-    >
-    </v-input>
-    <v-input
-            name="truststorePath"
-            [title]="'truststorePath' | pluginTranslate: pluginId | async"
-            [margin]="true"
-            [fullWidth]="true"
-            [defaultValue]="obs.prefill?.truststorePath"
-            [disabled]="obs.disabled"
-            [required]="false"
-    >
-    </v-input>
-    <v-input
-            name="truststoreSecret"
-            type="password"
-            [title]="'truststoreSecret' | pluginTranslate: pluginId | async"
-            [margin]="true"
-            [fullWidth]="true"
-            [defaultValue]="obs.prefill?.truststoreSecret"
-            [disabled]="obs.disabled"
-            [required]="false"
-    >
-    </v-input>
 </v-form>
