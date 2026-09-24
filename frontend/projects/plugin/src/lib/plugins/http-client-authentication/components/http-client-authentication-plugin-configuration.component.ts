@@ -17,7 +17,7 @@
 
 import {PluginConfigurationComponent} from "@valtimo/plugin";
 import {Component, EventEmitter, Input, OnDestroy, OnInit, Output} from "@angular/core";
-import {BehaviorSubject, combineLatest, map, Observable, Subscription, take} from "rxjs";
+import {BehaviorSubject, combineLatest, Observable, Subscription, take} from "rxjs";
 import {
     HttpClientAuthenticationPluginConfig
 } from "../models/http-client-authentication-plugin-config";
@@ -41,36 +41,31 @@ export class HttpClientAuthenticationPluginConfigurationComponent
     @Output() configuration: EventEmitter<HttpClientAuthenticationPluginConfig> =
         new EventEmitter<HttpClientAuthenticationPluginConfig>();
 
-    readonly bearerRadio = {value: 'BEARER', title: 'Bearer'};
-    readonly headerRadio = {value: 'HEADER', title: 'Header'};
-    readonly noneRadio = {value: 'NONE', title: 'None'};
-
-    readonly authenticationTypeOptions = [this.bearerRadio, this.headerRadio, this.noneRadio];
+    readonly authenticationTypeOptions = [
+        {value: 'BEARER', title: 'Bearer'},
+        {value: 'HEADER', title: 'Header'},
+        {value: 'TOKEN_EXCHANGE', title: 'Token exchange'},
+        {value: 'NONE', title: 'None'},
+    ];
 
     private saveSubscription!: Subscription;
+    private prefillSubscription!: Subscription;
 
     private readonly formValue$ = new BehaviorSubject<HttpClientAuthenticationPluginConfig | null>(null);
     private readonly valid$ = new BehaviorSubject<boolean>(false);
 
-    selectedAuthType$ = new BehaviorSubject(this.bearerRadio)
+    readonly selectedAuthType$ = new BehaviorSubject<string>('BEARER');
 
     ngOnInit(): void {
-        this.prefillConfiguration$.pipe(map(config => {
-            if (config?.authenticationType) {
-                if (config.authenticationType === this.bearerRadio.value) {
-                    this.selectedAuthType$.next(this.bearerRadio)
-                } else if (config.authenticationType === this.headerRadio.value) {
-                    this.selectedAuthType$.next(this.headerRadio)
-                } else if (config.authenticationType === this.noneRadio.value) {
-                    this.selectedAuthType$.next(this.noneRadio)
-                }
-            }
-        })).subscribe();
+        this.prefillSubscription = this.prefillConfiguration$?.subscribe(config => {
+            this.radioValueChange(config?.authenticationType);
+        });
         this.openSaveSubscription();
     }
 
     ngOnDestroy() {
         this.saveSubscription?.unsubscribe();
+        this.prefillSubscription?.unsubscribe();
     }
 
     formValueChange(formValue: any): void {
@@ -79,29 +74,26 @@ export class HttpClientAuthenticationPluginConfigurationComponent
     }
 
     radioValueChange(radioValue: string): void {
-        if (radioValue) {
-            if (radioValue === this.bearerRadio.value) {
-                this.selectedAuthType$.next(this.bearerRadio)
-            } else if (radioValue === this.headerRadio.value) {
-                this.selectedAuthType$.next(this.headerRadio)
-            } else if (radioValue === this.noneRadio.value) {
-                this.selectedAuthType$.next(this.noneRadio)
-            }
+        if (this.authenticationTypeOptions.some(option => option.value === radioValue)) {
+            this.selectedAuthType$.next(radioValue);
         }
     }
 
     private handleValid(formValue: HttpClientAuthenticationPluginConfig): void {
-        let valid = false
-        if (formValue.authenticationType === this.bearerRadio.value) {
-            valid = !!(formValue.authSecret
-                && formValue.configurationTitle)
-        } else if (formValue.authenticationType === this.headerRadio.value) {
-            valid = !!(formValue.authHeaderName
-                && formValue.authSecret
-                && formValue.configurationTitle)
-        } else if (formValue.authenticationType === this.noneRadio.value) {
-            valid = !!(formValue.configurationTitle)
-        }
+        // The fields each authentication type needs; mTLS is optional, but needs a secret with a keystore
+        const requiredFields: Record<string, Array<keyof HttpClientAuthenticationPluginConfig>> = {
+            BEARER: ['authSecret'],
+            HEADER: ['authHeaderName', 'authSecret'],
+            TOKEN_EXCHANGE: ['tokenEndpoint', 'clientId', 'clientSecret', 'audience'],
+            NONE: [],
+        };
+        const fields = requiredFields[formValue.authenticationType];
+        const valid = !!(
+            formValue.configurationTitle &&
+            fields &&
+            fields.every(field => !!formValue[field]) &&
+            (!formValue.keystorePath || formValue.keystoreSecret)
+        );
 
         this.valid$.next(valid);
         this.valid.emit(valid);

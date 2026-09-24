@@ -15,21 +15,17 @@
  *
  */
 
-import {PluginConfigurationData} from '@valtimo/plugin';
+package com.ritense.valtimoplugins.httpclientauthentication.tokenexchange
 
-interface HttpClientAuthenticationPluginConfig extends PluginConfigurationData {
-    authenticationType: string;
-    authHeaderName?: string;
-    authSecret?: string;
-    tokenEndpoint?: string;
-    clientId?: string;
-    clientSecret?: string;
-    audience?: string;
-    scope?: string;
-    keystorePath?: string;
-    keystoreSecret?: string;
-    truststorePath?: string;
-    truststoreSecret?: string;
-}
+import java.net.URI
 
-export {HttpClientAuthenticationPluginConfig};
+/**
+ * Configuration for a Keycloak-style client_credentials + token-exchange flow.
+ */
+data class TokenExchangeConfig(
+    val tokenEndpoint: URI,
+    val clientId: String,
+    val clientSecret: String,
+    val audience: String,
+    val scope: String? = null,
+)

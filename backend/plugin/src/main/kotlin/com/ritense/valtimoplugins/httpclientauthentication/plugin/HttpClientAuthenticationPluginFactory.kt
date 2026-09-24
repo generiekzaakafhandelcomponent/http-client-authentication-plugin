@@ -19,12 +19,14 @@ package com.ritense.valtimoplugins.httpclientauthentication.plugin
 
 import com.ritense.plugin.PluginFactory
 import com.ritense.plugin.service.PluginService
+import com.ritense.valtimoplugins.httpclientauthentication.tokenexchange.TokenExchangeClient
 
 class HttpClientAuthenticationPluginFactory(
-    pluginService: PluginService
+    pluginService: PluginService,
+    private val tokenExchangeClient: TokenExchangeClient,
 ) : PluginFactory<HttpClientAuthenticationPlugin>(pluginService) {
 
     override fun create(): HttpClientAuthenticationPlugin {
-        return HttpClientAuthenticationPlugin()
+        return HttpClientAuthenticationPlugin(tokenExchangeClient)
     }
 }

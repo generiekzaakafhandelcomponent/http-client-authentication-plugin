@@ -15,21 +15,19 @@
  *
  */
 
-import {PluginConfigurationData} from '@valtimo/plugin';
+package com.ritense.valtimoplugins.httpclientauthentication.tokenexchange
 
-interface HttpClientAuthenticationPluginConfig extends PluginConfigurationData {
-    authenticationType: string;
-    authHeaderName?: string;
-    authSecret?: string;
-    tokenEndpoint?: string;
-    clientId?: string;
-    clientSecret?: string;
-    audience?: string;
-    scope?: string;
-    keystorePath?: string;
-    keystoreSecret?: string;
-    truststorePath?: string;
-    truststoreSecret?: string;
-}
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
+import com.fasterxml.jackson.annotation.JsonProperty
 
-export {HttpClientAuthenticationPluginConfig};
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class TokenExchangeTokenResponse(
+    @JsonProperty("access_token")
+    val accessToken: String?,
+    @JsonProperty("expires_in")
+    val expiresIn: Long?,
+    @JsonProperty("error")
+    val error: String? = null,
+    @JsonProperty("error_description")
+    val errorDescription: String? = null,
+)

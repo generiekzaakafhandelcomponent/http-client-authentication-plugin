@@ -1,7 +1,19 @@
 # Http Client Authentication Plugin
 
-A GZAC plugin that provides authentication headers (bearer token or a custom header) for outbound REST clients
-configured through other plugins. Built from the GZAC plugin template.
+A GZAC plugin that authenticates outbound REST clients configured through other plugins. It supports four
+authentication types (`NONE`, `BEARER`, `HEADER` and `TOKEN_EXCHANGE`), plus optional mTLS on top of any of them.
+Built from the GZAC plugin template.
+
+> **Supersedes `token-exchange-authentication`.** As of 2.1.0 the Keycloak token-exchange flow is part of this
+> plugin as the `TOKEN_EXCHANGE` authentication type. The standalone `token-exchange-authentication` plugin is no
+> longer maintained. See [Migrating from token-exchange-authentication](documentation/plugin.md#migrating-from-token-exchange-authentication).
+
+## Supported Valtimo versions
+
+| Valtimo | Branch | Backend version | Frontend version | Java | Angular |
+|---------|--------|-----------------|------------------|------|---------|
+| 13.x    | `main` | `2.1.0`         | `2.1.0`          | 21   | 19      |
+| 12.x    | `v12`  | `2.1.0-V12`     | `2.1.0-V12`      | 17   | 17      |
 
 ## Getting started
 

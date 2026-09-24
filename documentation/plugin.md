@@ -2,9 +2,38 @@
 
 ## Overview
 
-The Http Client Authentication plugin provides authentication headers for outbound REST clients. Other plugins
-depend on the `http-client-authentication` `@PluginCategory` and use a configured instance to apply either a bearer
-token or a custom header to a Spring `RestClient.Builder` before making outbound calls.
+The Http Client Authentication plugin authenticates outbound REST clients. Other plugins depend on the
+`http-client-authentication` `@PluginCategory` and use a configured instance to apply authentication to a Spring
+`RestClient.Builder` before making outbound calls.
+
+Four authentication types are supported:
+
+| Type             | What is sent                                                                                   |
+|------------------|------------------------------------------------------------------------------------------------|
+| `NONE`           | Nothing                                                                                        |
+| `BEARER`         | `Authorization: Bearer <authSecret>`                                                           |
+| `HEADER`         | `<authHeaderName>: <authSecret>`                                                               |
+| `TOKEN_EXCHANGE` | `Authorization: Bearer <jwt>`, where the JWT is obtained via a Keycloak token-exchange flow    |
+
+Credentials are added by a request interceptor, so they are resolved on every request. For `TOKEN_EXCHANGE`
+this means a long-lived `RestClient` never sends an expired token.
+
+### Token exchange
+
+`TOKEN_EXCHANGE` performs a two-step exchange against a Keycloak (or other OIDC) token endpoint:
+
+1. `grant_type=client_credentials` to obtain a subject access token for the configured client.
+2. `grant_type=urn:ietf:params:oauth:grant-type:token-exchange` with that subject token to obtain a JWT scoped to
+   the configured `audience`.
+
+The JWT is cached in memory per configuration until shortly before it expires.
+
+### mTLS (optional)
+
+Some gateways (for example the ZGW wsgateway) require a client certificate. When `keystorePath` and
+`keystoreSecret` are configured, the plugin builds an `SSLContext` from that JKS keystore (and the optional
+truststore) and uses it for the outbound client. mTLS is independent of the authentication type and works with
+all four types, `NONE` included.
 
 ## Dependencies
 
@@ -12,18 +41,20 @@ token or a custom header to a Spring `RestClient.Builder` before making outbound
 
 ```kotlin
 dependencies {
-    implementation("com.ritense.valtimoplugins:http-client-authentication:2.0.0")
+    // Valtimo 13.x
+    implementation("com.ritense.valtimoplugins:http-client-authentication:2.1.0")
+    // Valtimo 12.x
+    implementation("com.ritense.valtimoplugins:http-client-authentication:2.1.0-V12")
 }
 ```
 
 ### Frontend
 
 ```json
-{
-  "dependencies": {
-    "@valtimo-plugins/http-client-authentication": "2.0.0"
-  }
-}
+// Valtimo 13.x
+{ "dependencies": { "@valtimo-plugins/http-client-authentication": "2.1.0" } }
+// Valtimo 12.x
+{ "dependencies": { "@valtimo-plugins/http-client-authentication": "2.1.0-V12" } }
 ```
 
 In your `app.module.ts`:
@@ -39,7 +70,7 @@ import {
     ],
     providers: [
         {
-            provide: PLUGIN_TOKEN,
+            provide: PLUGINS_TOKEN,
             useValue: [
                 httpClientAuthenticationPluginSpecification,
             ]
@@ -50,11 +81,23 @@ import {
 
 ## Configuration
 
-| Property           | Type   | Required | Description                                                                             |
-|---------------------|--------|----------|-------------------------------------------------------------------------------------------|
-| authenticationType | enum   | Yes      | One of `NONE`, `BEARER`, `HEADER`. Determines which authentication header, if any, is set |
-| authHeaderName     | string | Only for `HEADER` | Name of the header that will carry the secret when `authenticationType` is `HEADER` |
-| authSecret         | string (secret) | Only for `BEARER`/`HEADER` | The bearer token, or the value set on `authHeaderName`                         |
+| Property           | Type            | Required                | Description                                                            |
+|--------------------|-----------------|-------------------------|------------------------------------------------------------------------|
+| authenticationType | enum            | Yes                     | One of `NONE`, `BEARER`, `HEADER`, `TOKEN_EXCHANGE`                    |
+| authHeaderName     | string          | For `HEADER`            | Name of the header that carries `authSecret`                          |
+| authSecret         | string (secret) | For `BEARER` / `HEADER` | The bearer token, or the value of `authHeaderName`                    |
+| tokenEndpoint      | string (URI)    | For `TOKEN_EXCHANGE`    | The Keycloak (or other OIDC) token endpoint URL                        |
+| clientId           | string          | For `TOKEN_EXCHANGE`    | The client id used for both the client_credentials and exchange step  |
+| clientSecret       | string (secret) | For `TOKEN_EXCHANGE`    | The client secret                                                      |
+| audience           | string          | For `TOKEN_EXCHANGE`    | The audience the exchanged JWT is scoped to                           |
+| scope              | string          | No                      | Optional OAuth2 scope for the client_credentials step                 |
+| keystorePath       | string          | No                      | Path to a JKS keystore file on disk; enables mTLS for every type      |
+| keystoreSecret     | string (secret) | When `keystorePath` set | The keystore password                                                  |
+| truststorePath     | string          | No                      | Path to a JKS truststore file on disk                                  |
+| truststoreSecret   | string (secret) | When `truststorePath` set | The truststore password                                              |
+
+The required fields are checked when a configuration is saved (created or updated). A configuration that misses a
+field its type needs is rejected.
 
 ## Actions
 
@@ -80,6 +123,34 @@ class SomeOtherPlugin(
    - `NONE` — no authentication header is added.
    - `BEARER` — sets the `Authorization: Bearer <authSecret>` header.
    - `HEADER` — sets a custom header named `authHeaderName` with value `authSecret`.
+   - `TOKEN_EXCHANGE` — sets `Authorization: Bearer <jwt>` with a JWT obtained via Keycloak token-exchange.
+
+   Optionally fill in the mTLS section to present a client certificate.
 2. In a plugin that performs outbound REST calls, add a `@PluginProperty` of type `HttpClientAuthenticator` so a
    user can link a configured instance of this plugin to it.
 3. Call `applyAuth(builder)` on the injected `HttpClientAuthenticator` before executing the outbound request.
+
+## Migrating from token-exchange-authentication
+
+The standalone `token-exchange-authentication` plugin is superseded by the `TOKEN_EXCHANGE` type of this plugin.
+Its property keys are the same, so a configuration migrates by changing the plugin definition key and adding the
+authentication type:
+
+```json
+{
+    "pluginDefinitionKey": "http-client-authentication-plugin",
+    "properties": {
+        "authenticationType": "TOKEN_EXCHANGE",
+        "tokenEndpoint": "...",
+        "clientId": "...",
+        "clientSecret": "...",
+        "audience": "...",
+        "keystorePath": "...",
+        "keystoreSecret": "..."
+    }
+}
+```
+
+Consumers reference the `http-client-authentication` category (`HttpClientAuthenticator`). The
+`TokenExchangeAuthentication` interface and the `token-exchange-authentication` category are not carried over.
+Remove the `token-exchange-authentication` dependency (backend and frontend) after migrating.

@@ -15,21 +15,6 @@
  *
  */
 
-import {PluginConfigurationData} from '@valtimo/plugin';
+package com.ritense.valtimoplugins.httpclientauthentication.exception
 
-interface HttpClientAuthenticationPluginConfig extends PluginConfigurationData {
-    authenticationType: string;
-    authHeaderName?: string;
-    authSecret?: string;
-    tokenEndpoint?: string;
-    clientId?: string;
-    clientSecret?: string;
-    audience?: string;
-    scope?: string;
-    keystorePath?: string;
-    keystoreSecret?: string;
-    truststorePath?: string;
-    truststoreSecret?: string;
-}
-
-export {HttpClientAuthenticationPluginConfig};
+class TokenExchangeException(message: String, cause: Throwable? = null) : RuntimeException(message, cause)

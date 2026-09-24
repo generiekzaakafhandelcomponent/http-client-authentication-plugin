@@ -15,72 +15,152 @@
   ~
   -->
 
-<ng-container *ngIf="{
-    disabled: disabled$ | async,
-    prefill: prefillConfiguration$ ? (prefillConfiguration$ | async) : null,
-    selectedAuthType: selectedAuthType$ | async,
-  } as obs"
->
-    <v-form
-            (valueChange)="formValueChange($event)"
-            *ngIf="{
+<v-form
+        (valueChange)="formValueChange($event)"
+        *ngIf="{
         disabled: disabled$ | async,
-        prefill: prefillConfiguration$ ? (prefillConfiguration$ | async) : null
+        prefill: prefillConfiguration$ ? (prefillConfiguration$ | async) : null,
+        selectedAuthType: selectedAuthType$ | async
     } as obs"
+>
+    <v-input
+            name="configurationTitle"
+            [title]="'configurationTitle' | pluginTranslate: pluginId | async"
+            [margin]="true"
+            [defaultValue]="obs.prefill?.configurationTitle"
+            [disabled]="obs.disabled"
+            [required]="true"
     >
+    </v-input>
+    <v-radio
+            name="authenticationType"
+            [title]="'authenticationType' | pluginTranslate: pluginId | async"
+            [radioValues]="authenticationTypeOptions"
+            [defaultValue]="obs.selectedAuthType"
+            [margin]="true"
+            (valueChange)="radioValueChange($event)"
+    >
+    </v-radio>
+    <ng-container *ngIf="obs.selectedAuthType === 'HEADER'">
         <v-input
-                name="configurationTitle"
-                [title]="'configurationTitle' | pluginTranslate: pluginId | async"
+                name="authHeaderName"
+                [title]="'authHeaderName' | pluginTranslate: pluginId | async"
                 [margin]="true"
-                [defaultValue]="obs.prefill?.configurationTitle"
+                [fullWidth]="true"
+                [defaultValue]="obs.prefill?.authHeaderName"
                 [disabled]="obs.disabled"
                 [required]="true"
         >
         </v-input>
-        <v-radio
-                name="authenticationType"
-                [title]="'authenticationType' | pluginTranslate: pluginId | async"
-                [radioValues]="authenticationTypeOptions"
-                [defaultValue]="(selectedAuthType$|async).value"
+    </ng-container>
+    <ng-container *ngIf="obs.selectedAuthType === 'BEARER' || obs.selectedAuthType === 'HEADER'">
+        <v-input
+                name="authSecret"
+                type="password"
+                [title]="'authSecret' | pluginTranslate: pluginId | async"
                 [margin]="true"
-                (valueChange)="radioValueChange($event)"
+                [fullWidth]="true"
+                [defaultValue]="obs.prefill?.authSecret"
+                [disabled]="obs.disabled"
+                [required]="true"
         >
-        </v-radio>
-        <ng-container *ngIf="(selectedAuthType$|async).value == 'BEARER'">
-            <v-input
-                    name="authSecret"
-                    type="password"
-                    [title]="'authSecret' | pluginTranslate: pluginId | async"
-                    [margin]="true"
-                    [fullWidth]="true"
-                    [defaultValue]="obs.prefill?.authSecret"
-                    [disabled]="obs.disabled"
-                    [required]="false"
-            >
-            </v-input>
-        </ng-container>
-        <ng-container *ngIf="(selectedAuthType$|async).value == 'HEADER'">
-            <v-input
-                    name="authHeaderName"
-                    [title]="'authHeaderName' | pluginTranslate: pluginId | async"
-                    [margin]="true"
-                    [fullWidth]="true"
-                    [defaultValue]="obs.prefill?.authHeaderName"
-                    [disabled]="obs.disabled"
-                    [required]="false"
-            >
-            </v-input>
-            <v-input
-                    name="authSecret"
-                    type="password"
-                    [title]="'authSecret' | pluginTranslate: pluginId | async"
-                    [margin]="true"
-                    [fullWidth]="true"
-                    [defaultValue]="obs.prefill?.authSecret"
-                    [disabled]="obs.disabled"
-                    [required]="false"
-            >
-            </v-input>
-        </ng-container>
-    </v-form>
-</ng-container>
+        </v-input>
+    </ng-container>
+    <ng-container *ngIf="obs.selectedAuthType === 'TOKEN_EXCHANGE'">
+        <v-input
+                name="tokenEndpoint"
+                [title]="'tokenEndpoint' | pluginTranslate: pluginId | async"
+                [margin]="true"
+                [fullWidth]="true"
+                [defaultValue]="obs.prefill?.tokenEndpoint"
+                [disabled]="obs.disabled"
+                [required]="true"
+        >
+        </v-input>
+        <v-input
+                name="clientId"
+                [title]="'clientId' | pluginTranslate: pluginId | async"
+                [margin]="true"
+                [fullWidth]="true"
+                [defaultValue]="obs.prefill?.clientId"
+                [disabled]="obs.disabled"
+                [required]="true"
+        >
+        </v-input>
+        <v-input
+                name="clientSecret"
+                type="password"
+                [title]="'clientSecret' | pluginTranslate: pluginId | async"
+                [margin]="true"
+                [fullWidth]="true"
+                [defaultValue]="obs.prefill?.clientSecret"
+                [disabled]="obs.disabled"
+                [required]="true"
+        >
+        </v-input>
+        <v-input
+                name="audience"
+                [title]="'audience' | pluginTranslate: pluginId | async"
+                [margin]="true"
+                [fullWidth]="true"
+                [defaultValue]="obs.prefill?.audience"
+                [disabled]="obs.disabled"
+                [required]="true"
+        >
+        </v-input>
+        <v-input
+                name="scope"
+                [title]="'scope' | pluginTranslate: pluginId | async"
+                [margin]="true"
+                [fullWidth]="true"
+                [defaultValue]="obs.prefill?.scope"
+                [disabled]="obs.disabled"
+                [required]="false"
+        >
+        </v-input>
+    </ng-container>
+    <hr/>
+    <p><strong>{{ 'mtlsSection' | pluginTranslate: pluginId | async }}</strong></p>
+    <v-input
+            name="keystorePath"
+            [title]="'keystorePath' | pluginTranslate: pluginId | async"
+            [margin]="true"
+            [fullWidth]="true"
+            [defaultValue]="obs.prefill?.keystorePath"
+            [disabled]="obs.disabled"
+            [required]="false"
+    >
+    </v-input>
+    <v-input
+            name="keystoreSecret"
+            type="password"
+            [title]="'keystoreSecret' | pluginTranslate: pluginId | async"
+            [margin]="true"
+            [fullWidth]="true"
+            [defaultValue]="obs.prefill?.keystoreSecret"
+            [disabled]="obs.disabled"
+            [required]="false"
+    >
+    </v-input>
+    <v-input
+            name="truststorePath"
+            [title]="'truststorePath' | pluginTranslate: pluginId | async"
+            [margin]="true"
+            [fullWidth]="true"
+            [defaultValue]="obs.prefill?.truststorePath"
+            [disabled]="obs.disabled"
+            [required]="false"
+    >
+    </v-input>
+    <v-input
+            name="truststoreSecret"
+            type="password"
+            [title]="'truststoreSecret' | pluginTranslate: pluginId | async"
+            [margin]="true"
+            [fullWidth]="true"
+            [defaultValue]="obs.prefill?.truststoreSecret"
+            [disabled]="obs.disabled"
+            [required]="false"
+    >
+    </v-input>
+</v-form>
