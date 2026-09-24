@@ -30,10 +30,12 @@ The JWT is cached in memory per configuration until shortly before it expires.
 
 ### mTLS (optional)
 
-Some gateways (for example the ZGW wsgateway) require a client certificate. When `keystorePath` and
-`keystoreSecret` are configured, the plugin builds an `SSLContext` from that JKS keystore (and the optional
-truststore) and uses it for the outbound client. mTLS is independent of the authentication type and works with
-all four types, `NONE` included.
+Some gateways (for example the ZGW wsgateway) require a client certificate. mTLS is only available for the
+`TOKEN_EXCHANGE` type. When `keystorePath` and `keystoreSecret` are configured, the plugin builds an `SSLContext`
+from that JKS keystore (and the optional truststore) and uses it for the outbound client.
+
+A configuration of any other type that sets `keystorePath` or `truststorePath` is rejected when it is saved. The
+frontend only shows the mTLS section when `TOKEN_EXCHANGE` is selected.
 
 ## Dependencies
 
@@ -91,13 +93,13 @@ import {
 | clientSecret       | string (secret) | For `TOKEN_EXCHANGE`    | The client secret                                                      |
 | audience           | string          | For `TOKEN_EXCHANGE`    | The audience the exchanged JWT is scoped to                           |
 | scope              | string          | No                      | Optional OAuth2 scope for the client_credentials step                 |
-| keystorePath       | string          | No                      | Path to a JKS keystore file on disk; enables mTLS for every type      |
+| keystorePath       | string          | No, `TOKEN_EXCHANGE` only | Path to a JKS keystore file on disk; enables mTLS                   |
 | keystoreSecret     | string (secret) | When `keystorePath` set | The keystore password                                                  |
-| truststorePath     | string          | No                      | Path to a JKS truststore file on disk                                  |
+| truststorePath     | string          | No, `TOKEN_EXCHANGE` only | Path to a JKS truststore file on disk                               |
 | truststoreSecret   | string (secret) | When `truststorePath` set | The truststore password                                              |
 
 The required fields are checked when a configuration is saved (created or updated). A configuration that misses a
-field its type needs is rejected.
+field its type needs, or sets mTLS fields for a type other than `TOKEN_EXCHANGE`, is rejected.
 
 ## Actions
 
@@ -125,7 +127,7 @@ class SomeOtherPlugin(
    - `HEADER` — sets a custom header named `authHeaderName` with value `authSecret`.
    - `TOKEN_EXCHANGE` — sets `Authorization: Bearer <jwt>` with a JWT obtained via Keycloak token-exchange.
 
-   Optionally fill in the mTLS section to present a client certificate.
+   For `TOKEN_EXCHANGE`, optionally fill in the mTLS section to present a client certificate.
 2. In a plugin that performs outbound REST calls, add a `@PluginProperty` of type `HttpClientAuthenticator` so a
    user can link a configured instance of this plugin to it.
 3. Call `applyAuth(builder)` on the injected `HttpClientAuthenticator` before executing the outbound request.

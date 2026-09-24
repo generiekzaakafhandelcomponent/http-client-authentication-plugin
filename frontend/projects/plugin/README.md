@@ -1,1 +1,1 @@
-This is the Http Client Authentication plugin. It provides authentication headers (bearer token or a custom header) for outbound REST clients configured through other plugins.
+This is the Http Client Authentication plugin. It authenticates outbound REST clients configured through other plugins, using a bearer token, a custom header or a Keycloak token-exchange JWT (with optional mTLS).

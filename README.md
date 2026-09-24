@@ -1,7 +1,7 @@
 # Http Client Authentication Plugin
 
 A GZAC plugin that authenticates outbound REST clients configured through other plugins. It supports four
-authentication types (`NONE`, `BEARER`, `HEADER` and `TOKEN_EXCHANGE`), plus optional mTLS on top of any of them.
+authentication types (`NONE`, `BEARER`, `HEADER` and `TOKEN_EXCHANGE`), plus optional mTLS for `TOKEN_EXCHANGE`.
 Built from the GZAC plugin template.
 
 > **Supersedes `token-exchange-authentication`.** As of 2.1.0 the Keycloak token-exchange flow is part of this

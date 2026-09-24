@@ -35,8 +35,8 @@ import java.net.http.HttpClient
 import javax.net.ssl.SSLContext
 
 /**
- * Authenticates outbound REST clients using one of the [AuthenticationType]s. Independently of the
- * type, a client certificate (mTLS) is presented when a keystore is configured.
+ * Authenticates outbound REST clients using one of the [AuthenticationType]s. For [AuthenticationType.TOKEN_EXCHANGE],
+ * a client certificate (mTLS) is presented when a keystore is configured.
  */
 @Plugin(
     key = "http-client-authentication-plugin",
@@ -74,7 +74,7 @@ class HttpClientAuthenticationPlugin(
     @PluginProperty(key = "scope", secret = false, required = false)
     var scope: String? = null
 
-    // mTLS, optional for every type
+    // mTLS, optional for TOKEN_EXCHANGE only
     @PluginProperty(key = "keystorePath", secret = false, required = false)
     var keystorePath: String? = null
 
@@ -120,9 +120,15 @@ class HttpClientAuthenticationPlugin(
                 "audience" to audience,
             )
         }
-        if (!keystorePath.isNullOrBlank()) {
-            require(!keystoreSecret.isNullOrBlank()) {
-                "keystoreSecret is required when keystorePath is configured"
+        if (authenticationType == AuthenticationType.TOKEN_EXCHANGE) {
+            if (!keystorePath.isNullOrBlank()) {
+                require(!keystoreSecret.isNullOrBlank()) {
+                    "keystoreSecret is required when keystorePath is configured"
+                }
+            }
+        } else {
+            require(keystorePath.isNullOrBlank() && truststorePath.isNullOrBlank()) {
+                "mTLS (keystorePath, truststorePath) is only supported for authentication type TOKEN_EXCHANGE"
             }
         }
     }
@@ -147,7 +153,7 @@ class HttpClientAuthenticationPlugin(
                 execution.execute(request, body)
             }
         }
-        sslContext?.let { sslContext ->
+        sslContext?.takeIf { authenticationType == AuthenticationType.TOKEN_EXCHANGE }?.let { sslContext ->
             val httpClient = HttpClient.newBuilder().sslContext(sslContext).build()
             builder.requestFactory(JdkClientHttpRequestFactory(httpClient))
         }
