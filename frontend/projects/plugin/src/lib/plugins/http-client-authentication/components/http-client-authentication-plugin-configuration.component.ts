@@ -80,7 +80,7 @@ export class HttpClientAuthenticationPluginConfigurationComponent
     }
 
     private handleValid(formValue: HttpClientAuthenticationPluginConfig): void {
-        // The fields each authentication type needs; mTLS is optional, but needs a secret with a keystore
+        // The fields each authentication type needs; mTLS (token exchange only) is optional, but each store needs its secret
         const requiredFields: Record<string, Array<keyof HttpClientAuthenticationPluginConfig>> = {
             BEARER: ['authSecret'],
             HEADER: ['authHeaderName', 'authSecret'],
@@ -92,7 +92,8 @@ export class HttpClientAuthenticationPluginConfigurationComponent
             formValue.configurationTitle &&
             fields &&
             fields.every(field => !!formValue[field]) &&
-            (!formValue.keystorePath || formValue.keystoreSecret)
+            (!formValue.keystorePath || formValue.keystoreSecret) &&
+            (!formValue.truststorePath || formValue.truststoreSecret)
         );
 
         this.valid$.next(valid);

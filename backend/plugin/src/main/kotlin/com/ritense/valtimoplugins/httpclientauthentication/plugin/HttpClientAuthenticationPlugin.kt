@@ -126,6 +126,11 @@ class HttpClientAuthenticationPlugin(
                     "keystoreSecret is required when keystorePath is configured"
                 }
             }
+            if (!truststorePath.isNullOrBlank()) {
+                require(!truststoreSecret.isNullOrBlank()) {
+                    "truststoreSecret is required when truststorePath is configured"
+                }
+            }
         } else {
             require(keystorePath.isNullOrBlank() && truststorePath.isNullOrBlank()) {
                 "mTLS (keystorePath, truststorePath) is only supported for authentication type TOKEN_EXCHANGE"

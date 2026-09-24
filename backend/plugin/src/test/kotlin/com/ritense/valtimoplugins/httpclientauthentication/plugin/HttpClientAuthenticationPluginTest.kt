@@ -210,6 +210,21 @@ class HttpClientAuthenticationPluginTest {
     }
 
     @Test
+    fun `validateProperties should reject a truststorePath without truststoreSecret`() {
+        plugin.apply {
+            authenticationType = AuthenticationType.TOKEN_EXCHANGE
+            tokenEndpoint = URI("https://keycloak.example.com/token")
+            clientId = "client"
+            clientSecret = "secret"
+            audience = "haal-centraal"
+            truststorePath = "/certs/truststore.jks"
+        }
+
+        val exception = assertThrows<IllegalArgumentException> { plugin.validateProperties() }
+        assertContains(exception.message!!, "truststoreSecret")
+    }
+
+    @Test
     fun `validateProperties should reject mTLS for types other than TOKEN_EXCHANGE`() {
         plugin.apply {
             authenticationType = AuthenticationType.BEARER
