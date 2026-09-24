@@ -159,7 +159,7 @@
         "chokidar": "4.0.3",
         "chokidar-cli": "3.0.0",
         "cross-env": "7.0.3",
-        "eslint": "9.25.1",
+        "eslint": "8.57.1",
         "eslint-config-prettier": "10.1.2",
         "eslint-plugin-import": "2.31.0",
         "eslint-plugin-jsdoc": "50.6.11",
