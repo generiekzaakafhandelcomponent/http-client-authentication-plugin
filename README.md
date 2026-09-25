@@ -13,7 +13,7 @@ Built from the GZAC plugin template.
 | Valtimo | Branch | Backend version | Frontend version | Java | Angular |
 |---------|--------|-----------------|------------------|------|---------|
 | 13.x    | `main` | `2.1.0`         | `2.1.0`          | 21   | 19      |
-| 12.x    | `v12`  | `2.1.0-V12`     | `2.1.0-V12`      | 17   | 17      |
+| 12.x    | `v12`  | `2.1.1-V12`     | `2.1.1-V12`      | 17   | 17      |
 
 ## Getting started
 

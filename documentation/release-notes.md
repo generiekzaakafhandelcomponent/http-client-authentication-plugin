@@ -2,10 +2,19 @@
 
 Overzicht van wijzigingen per versie van de Http Client Authentication plugin.
 
+## 2.1.1-V12
+
+Compatibel met Valtimo 12. `2.1.0` (Valtimo 13) bevat dezelfde wijziging.
+
+- **Breaking change:** de plugin key is gewijzigd van `http-client-authentication-plugin` naar
+  `http-client-authentication`, en de titel van "Http Client Authentication Plugin" naar
+  "Http Client Authentication". Bestaande configuraties worden niet automatisch gemigreerd. Zie
+  [Upgrading to the new plugin key](plugin.md#upgrading-to-the-new-plugin-key).
+
 ## 2.1.0 / 2.1.0-V12
 
-`2.1.0` is compatibel met Valtimo 13, `2.1.0-V12` met Valtimo 12. Alleen toevoegingen; bestaande configuraties
-blijven werken.
+`2.1.0` is compatibel met Valtimo 13, `2.1.0-V12` met Valtimo 12. `2.1.0-V12` bevat alleen toevoegingen; bestaande
+configuraties blijven werken. `2.1.0` bevat daarnaast de nieuwe plugin key (zie `2.1.1-V12`).
 
 - Nieuw authenticatie type `TOKEN_EXCHANGE`: haalt een JWT op via een Keycloak client_credentials + token-exchange
   flow en stuurt die als bearer token mee. Het token wordt gecached tot kort voor het verloopt.

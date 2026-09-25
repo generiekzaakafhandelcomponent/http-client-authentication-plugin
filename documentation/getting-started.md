@@ -4,7 +4,7 @@
 
 ```kotlin
 dependencies {
-    implementation("com.ritense.valtimoplugins:http-client-authentication:2.1.0-V12")
+    implementation("com.ritense.valtimoplugins:http-client-authentication:2.1.1-V12")
 }
 ```
 
@@ -13,7 +13,7 @@ dependencies {
 ```json
 {
   "dependencies": {
-    "@valtimo-plugins/http-client-authentication": "2.1.0-V12"
+    "@valtimo-plugins/http-client-authentication": "2.1.1-V12"
   }
 }
 ```

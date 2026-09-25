@@ -39,8 +39,8 @@ import javax.net.ssl.SSLContext
  * a client certificate (mTLS) is presented when a keystore is configured.
  */
 @Plugin(
-    key = "http-client-authentication-plugin",
-    title = "Http Client Authentication Plugin",
+    key = "http-client-authentication",
+    title = "Http Client Authentication",
     description = "Provides authentication headers for outbound REST clients"
 )
 @Suppress("UNUSED")

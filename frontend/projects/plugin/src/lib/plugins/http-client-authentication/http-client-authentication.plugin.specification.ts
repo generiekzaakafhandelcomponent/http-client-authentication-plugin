@@ -26,7 +26,7 @@ const httpClientAuthenticationPluginSpecification: PluginSpecification = {
     The plugin definition key of the plugin.
     This needs to be the same as the id received from the back-end
      */
-    pluginId: 'http-client-authentication-plugin',
+    pluginId: 'http-client-authentication',
     /*
     A component of the interface PluginConfigurationComponent, used to configure the plugin itself.
      */
@@ -42,8 +42,8 @@ const httpClientAuthenticationPluginSpecification: PluginSpecification = {
         nl: {
             configurationTitle: 'Configuratienaam',
             configurationTitleTooltip:
-                'Http Client Authentication Plugin',
-            title: 'Http Client Authentication Plugin',
+                'Http Client Authentication',
+            title: 'Http Client Authentication',
             description: 'Biedt authenticatie headers voor uitgaande REST clients',
             authenticationType: 'Authenticatie type',
             authHeaderName: 'Authenticatie header naam',
@@ -62,8 +62,8 @@ const httpClientAuthenticationPluginSpecification: PluginSpecification = {
         en: {
             configurationTitle: 'Configuration name',
             configurationTitleTooltip:
-                'Http Client Authentication Plugin',
-            title: 'Http Client Authentication Plugin',
+                'Http Client Authentication',
+            title: 'Http Client Authentication',
             description: 'Provides authentication headers for outbound REST clients',
             authenticationType: 'Authentication type',
             authHeaderName: 'Authentication header name',
@@ -82,8 +82,8 @@ const httpClientAuthenticationPluginSpecification: PluginSpecification = {
         de: {
             configurationTitle: 'Konfigurationsname',
             configurationTitleTooltip:
-                'Http Client Authentication Plugin',
-            title: 'Http Client Authentication Plugin',
+                'Http Client Authentication',
+            title: 'Http Client Authentication',
             description: 'Stellt Authentifizierungs-Header für ausgehende REST-Clients bereit',
             authenticationType: 'Authentifizierungstyp',
             authHeaderName: 'Name des Authentifizierungs-Headers',

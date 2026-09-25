@@ -46,7 +46,7 @@ dependencies {
     // Valtimo 13.x
     implementation("com.ritense.valtimoplugins:http-client-authentication:2.1.0")
     // Valtimo 12.x
-    implementation("com.ritense.valtimoplugins:http-client-authentication:2.1.0-V12")
+    implementation("com.ritense.valtimoplugins:http-client-authentication:2.1.1-V12")
 }
 ```
 
@@ -56,7 +56,7 @@ dependencies {
 // Valtimo 13.x
 { "dependencies": { "@valtimo-plugins/http-client-authentication": "2.1.0" } }
 // Valtimo 12.x
-{ "dependencies": { "@valtimo-plugins/http-client-authentication": "2.1.0-V12" } }
+{ "dependencies": { "@valtimo-plugins/http-client-authentication": "2.1.1-V12" } }
 ```
 
 In your `app.module.ts`:
@@ -132,6 +132,17 @@ class SomeOtherPlugin(
    user can link a configured instance of this plugin to it.
 3. Call `applyAuth(builder)` on the injected `HttpClientAuthenticator` before executing the outbound request.
 
+## Upgrading to the new plugin key
+
+As of `2.1.0` (Valtimo 13) and `2.1.1-V12` (Valtimo 12) the plugin key is `http-client-authentication`. Earlier
+versions used `http-client-authentication-plugin`. Existing configurations are not migrated automatically; after
+upgrading they still reference the old key, which no plugin provides anymore.
+
+- Update the backend and frontend to matching versions. The frontend `pluginId` must equal the backend key.
+- In autodeploy files (`*.pluginconfig.json`), change `pluginDefinitionKey` to `http-client-authentication`.
+- Check that each configuration shows up under the new plugin. Recreate any that don't, and link them again in
+  the plugins that use them.
+
 ## Migrating from token-exchange-authentication
 
 The standalone `token-exchange-authentication` plugin is superseded by the `TOKEN_EXCHANGE` type of this plugin.
@@ -140,7 +151,7 @@ authentication type:
 
 ```json
 {
-    "pluginDefinitionKey": "http-client-authentication-plugin",
+    "pluginDefinitionKey": "http-client-authentication",
     "properties": {
         "authenticationType": "TOKEN_EXCHANGE",
         "tokenEndpoint": "...",

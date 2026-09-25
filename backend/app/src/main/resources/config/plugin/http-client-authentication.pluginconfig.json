@@ -2,7 +2,7 @@
     {
         "id": "7f3c2a10-5b1e-4c7d-9a2f-1e0b6d4c8a01",
         "title": "Http Client Authentication - None (Autodeployed)",
-        "pluginDefinitionKey": "http-client-authentication-plugin",
+        "pluginDefinitionKey": "http-client-authentication",
         "properties": {
             "authenticationType": "NONE"
         }
@@ -10,7 +10,7 @@
     {
         "id": "7f3c2a10-5b1e-4c7d-9a2f-1e0b6d4c8a02",
         "title": "Http Client Authentication - Bearer (Autodeployed)",
-        "pluginDefinitionKey": "http-client-authentication-plugin",
+        "pluginDefinitionKey": "http-client-authentication",
         "properties": {
             "authenticationType": "BEARER",
             "authSecret": "example-bearer-token"
@@ -19,7 +19,7 @@
     {
         "id": "7f3c2a10-5b1e-4c7d-9a2f-1e0b6d4c8a03",
         "title": "Http Client Authentication - Header (Autodeployed)",
-        "pluginDefinitionKey": "http-client-authentication-plugin",
+        "pluginDefinitionKey": "http-client-authentication",
         "properties": {
             "authenticationType": "HEADER",
             "authHeaderName": "X-Api-Key",
@@ -29,7 +29,7 @@
     {
         "id": "7f3c2a10-5b1e-4c7d-9a2f-1e0b6d4c8a04",
         "title": "Http Client Authentication - Token exchange (Autodeployed)",
-        "pluginDefinitionKey": "http-client-authentication-plugin",
+        "pluginDefinitionKey": "http-client-authentication",
         "properties": {
             "authenticationType": "TOKEN_EXCHANGE",
             "tokenEndpoint": "http://localhost:8081/auth/realms/valtimo/protocol/openid-connect/token",

@@ -77,6 +77,6 @@ internal class HttpClientAuthenticationPluginIT : BaseIntegrationTest() {
     private fun properties(json: String) = objectMapper.readTree(json) as ObjectNode
 
     companion object {
-        private const val PLUGIN_KEY = "http-client-authentication-plugin"
+        private const val PLUGIN_KEY = "http-client-authentication"
     }
 }
