@@ -1,7 +1,7 @@
 {
     "name": "@valtimo-plugins/http-client-authentication",
     "license": "EUPL-1.2",
-    "version": "2.0.0",
+    "version": "2.0.1",
     "scripts": {
         "build": "ng build @valtimo-plugins/http-client-authentication",
         "watch": "ng build @valtimo-plugins/http-client-authentication --watch"

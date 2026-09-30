@@ -2,6 +2,10 @@
 
 Overzicht van wijzigingen per versie van de Http Client Authentication plugin.
 
+## 2.0.1
+
+Ondersteuning voor Valtimo 13.48.0.
+
 ## 2.0.0
 
 Compatibel met Valtimo 13.
