@@ -17,22 +17,51 @@
 
 package com.ritense.valtimoplugins.httpclientauthentication.plugin
 
+import com.ritense.besluitenapi.BesluitenApiAuthentication
+import com.ritense.catalogiapi.CatalogiApiAuthentication
+import com.ritense.documentenapi.DocumentenApiAuthentication
+import com.ritense.klantinteractiesapi.KlantinteractiesApiAuthentication
+import com.ritense.notificatiesapi.NotificatiesApiAuthentication
+import com.ritense.objectenapi.ObjectenApiAuthentication
+import com.ritense.objecttypenapi.ObjecttypenApiAuthentication
+import com.ritense.openzaak.plugin.token.OpenZaakPluginTokenGeneratorService
 import com.ritense.plugin.annotation.Plugin
+import com.ritense.plugin.annotation.PluginEvent
 import com.ritense.plugin.annotation.PluginProperty
+import com.ritense.plugin.domain.EventType
+import com.ritense.plugin.domain.PluginConfigurationId
 import com.ritense.valtimoplugins.httpclientauthentication.HttpClientAuthenticator
 import com.ritense.valtimoplugins.httpclientauthentication.model.AuthenticationType
+import com.ritense.valtimoplugins.httpclientauthentication.tls.TlsMaterial
+import com.ritense.valtimoplugins.httpclientauthentication.tls.TlsRequestFactoryCache
+import com.ritense.zakenapi.ZakenApiAuthentication
 import io.github.oshai.kotlinlogging.KotlinLogging
+import org.springframework.http.HttpHeaders
 import org.springframework.web.client.RestClient
-
+import org.springframework.web.reactive.function.client.ClientRequest
+import org.springframework.web.reactive.function.client.ClientResponse
+import org.springframework.web.reactive.function.client.ExchangeFunction
+import reactor.core.publisher.Mono
 
 @Plugin(
     key = "http-client-authentication-plugin",
     title = "Http Client Authentication Plugin",
-    description = "Provides authentication headers for outbound REST clients"
+    description = "Provides authentication and mutual TLS for outbound REST clients, including the ZGW API plugins",
 )
 @Suppress("UNUSED")
-class HttpClientAuthenticationPlugin : HttpClientAuthenticator {
-
+class HttpClientAuthenticationPlugin(
+    override val configurationId: PluginConfigurationId,
+    private val tokenGeneratorService: OpenZaakPluginTokenGeneratorService,
+    private val tlsRequestFactoryCache: TlsRequestFactoryCache,
+) : HttpClientAuthenticator,
+    ZakenApiAuthentication,
+    DocumentenApiAuthentication,
+    CatalogiApiAuthentication,
+    BesluitenApiAuthentication,
+    NotificatiesApiAuthentication,
+    ObjectenApiAuthentication,
+    ObjecttypenApiAuthentication,
+    KlantinteractiesApiAuthentication {
     @PluginProperty(key = "authenticationType", secret = false, required = true)
     lateinit var authenticationType: AuthenticationType
 
@@ -42,21 +71,71 @@ class HttpClientAuthenticationPlugin : HttpClientAuthenticator {
     @PluginProperty(key = "authSecret", secret = true, required = false)
     lateinit var authSecret: String
 
+    @PluginProperty(key = "clientId", secret = false, required = false)
+    var clientId: String? = null
+
+    @PluginProperty(key = "clientCertificate", secret = false, required = false)
+    var clientCertificate: String? = null
+
+    @PluginProperty(key = "clientPrivateKey", secret = true, required = false)
+    var clientPrivateKey: String? = null
+
+    @PluginProperty(key = "serverCertificate", secret = false, required = false)
+    var serverCertificate: String? = null
+
+    @PluginEvent(invokedOn = [EventType.CREATE, EventType.UPDATE])
+    fun validateTlsConfiguration() {
+        tlsMaterial().takeIf { it.isConfigured }?.toSslBundle()
+    }
+
     override fun applyAuth(builder: RestClient.Builder): RestClient.Builder {
-        return builder.defaultHeaders { headers ->
-            when (authenticationType) {
-                AuthenticationType.BEARER -> {
-                    headers.setBearerAuth(authSecret)
-                }
+        val tlsMaterial = tlsMaterial()
+        if (tlsMaterial.isConfigured) {
+            builder.requestFactory(tlsRequestFactoryCache.requestFactory(tlsMaterial))
+        }
+        return builder.defaultHeaders { headers -> setAuthHeaders(headers) }
+    }
 
-                AuthenticationType.HEADER -> {
-                    headers.set(authHeaderName, authSecret)
-                }
+    override fun filter(
+        request: ClientRequest,
+        next: ExchangeFunction,
+    ): Mono<ClientResponse> {
+        val filteredRequest =
+            ClientRequest
+                .from(request)
+                .headers { headers ->
+                    setAuthHeaders(headers)
+                }.build()
+        return next.exchange(filteredRequest)
+    }
 
-                AuthenticationType.NONE -> Unit
+    private fun setAuthHeaders(headers: HttpHeaders) {
+        when (authenticationType) {
+            AuthenticationType.BEARER -> {
+                headers.setBearerAuth(authSecret)
             }
+
+            AuthenticationType.HEADER -> {
+                headers.set(authHeaderName, authSecret)
+            }
+
+            AuthenticationType.TOKEN -> {
+                headers.set(HttpHeaders.AUTHORIZATION, "Token $authSecret")
+            }
+
+            AuthenticationType.ZGW_JWT -> {
+                val clientId =
+                    requireNotNull(clientId?.takeIf { it.isNotBlank() }) {
+                        "Property 'clientId' is required for authentication type ZGW_JWT"
+                    }
+                headers.setBearerAuth(tokenGeneratorService.generateToken(authSecret, clientId))
+            }
+
+            AuthenticationType.NONE -> Unit
         }
     }
+
+    private fun tlsMaterial() = TlsMaterial(clientCertificate, clientPrivateKey, serverCertificate)
 
     companion object {
         val logger = KotlinLogging.logger {}
