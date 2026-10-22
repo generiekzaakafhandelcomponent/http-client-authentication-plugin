@@ -41,7 +41,7 @@ const httpClientAuthenticationPluginSpecification: PluginSpecification = {
     pluginTranslations: {
         nl: {
             configurationTitle: 'Configuratienaam',
-            configurationTitlePlaceholder: 'Open Zaak',
+            configurationTitlePlaceholder: 'Client Authentication',
             configurationTitleTooltip:
                 'Http Client Authentication Plugin',
             title: 'Http Client Authentication Plugin',
@@ -76,7 +76,7 @@ const httpClientAuthenticationPluginSpecification: PluginSpecification = {
         },
         en: {
             configurationTitle: 'Configuration name',
-            configurationTitlePlaceholder: 'Open Zaak',
+            configurationTitlePlaceholder: 'Client Authentication',
             configurationTitleTooltip:
                 'Http Client Authentication Plugin',
             title: 'Http Client Authentication Plugin',
