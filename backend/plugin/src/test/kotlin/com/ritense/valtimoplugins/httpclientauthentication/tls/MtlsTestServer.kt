@@ -25,17 +25,22 @@ import org.springframework.boot.ssl.pem.PemSslStoreBundle
 import org.springframework.boot.ssl.pem.PemSslStoreDetails
 import java.net.InetSocketAddress
 import java.security.cert.X509Certificate
+import java.util.concurrent.CopyOnWriteArrayList
 
-// An HTTPS server on a free port that demands a client certificate signed by the test CA, like Den Bosch's gateway
+// An HTTPS server on a free port that demands a client certificate signed by the test CA, like Den Bosch's gateway.
+// Answers with the body in [responses] for "<method> <path>", or with [responseBody] when there is none.
 class MtlsTestServer(
     private val responseBody: String = "{}",
     private val responseDelayMillis: Long = 0,
+    private val responses: Map<String, String> = emptyMap(),
 ) : AutoCloseable {
     @Volatile
     var receivedAuthorization: String? = null
 
     @Volatile
     var receivedClientCertificateSubject: String? = null
+
+    val receivedRequests: MutableList<ReceivedRequest> = CopyOnWriteArrayList()
 
     private val server: HttpsServer = HttpsServer.create(InetSocketAddress("127.0.0.1", 0), 0)
 
@@ -62,8 +67,10 @@ class MtlsTestServer(
             receivedClientCertificateSubject =
                 ((exchange as HttpsExchange).sslSession.peerCertificates.first() as X509Certificate)
                     .subjectX500Principal.name
+            val request = "${exchange.requestMethod} ${exchange.requestURI.path}"
+            receivedRequests.add(ReceivedRequest(request, receivedClientCertificateSubject, receivedAuthorization))
             Thread.sleep(responseDelayMillis)
-            val body = responseBody.toByteArray()
+            val body = (responses[request] ?: responseBody).toByteArray()
             exchange.responseHeaders.add("Content-Type", "application/json")
             exchange.sendResponseHeaders(200, body.size.toLong())
             exchange.responseBody.use { it.write(body) }
@@ -77,4 +84,10 @@ class MtlsTestServer(
     override fun close() {
         server.stop(0)
     }
+
+    data class ReceivedRequest(
+        val request: String,
+        val clientCertificateSubject: String?,
+        val authorization: String?,
+    )
 }

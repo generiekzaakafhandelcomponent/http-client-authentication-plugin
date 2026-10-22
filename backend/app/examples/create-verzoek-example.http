@@ -1,0 +1,31 @@
+# Creates a verzoek object in the Objects API. The Objects API notifies Open Notificaties (kanaal "objecten"),
+# which calls Valtimo back. The Verzoek plugin then creates an Example case, creates a zaak in Open Zaak with the
+# BSN as initiator, and starts the "example-process".
+@objects_api_url = http://localhost:8010/api/v2/objects
+@token = 182c13e2209161852c53cef53a879f7a2f923430
+@objecttype_url = http://host.docker.internal:8011/api/v2/objecttypes/a6f2e8b1-6c3d-4f7e-9b2a-1d5c8e0f3a74
+@objecttype_version = 1
+
+### Create verzoek
+POST {{objects_api_url}}
+Authorization: Token {{token}}
+Content-Crs: EPSG:4326
+Content-Type: application/json
+
+{
+    "type": "{{objecttype_url}}",
+    "record": {
+        "typeVersion": {{objecttype_version}},
+        "data": {
+            "type": "example",
+            "bsn": "999991322",
+            "data": {
+                "name": "Celeste Avion {{$random.alphanumeric(4)}}"
+            },
+            "language_code": "nl",
+            "submission_id": "",
+            "public_reference": "OF-{{$random.alphanumeric(8)}}"
+        },
+        "startAt": "2026-01-01"
+    }
+}

@@ -19,6 +19,9 @@ package com.ritense.valtimoplugins.httpclientauthentication.plugin
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.ritense.authorization.AuthorizationContext.Companion.runWithoutAuthorization
+import com.ritense.notificatiesapi.NotificatiesApiPlugin
+import com.ritense.notificatiesapi.client.NotificatiesApiClient
+import com.ritense.notificatiesapi.domain.Abonnement
 import com.ritense.objectenapi.ObjectenApiPlugin
 import com.ritense.plugin.autodeployment.PluginAutoDeploymentDto
 import com.ritense.plugin.domain.PluginConfiguration
@@ -34,6 +37,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.web.client.ResourceAccessException
 import java.net.URI
 import java.util.UUID
 import kotlin.test.assertEquals
@@ -52,6 +56,9 @@ internal class HttpClientAuthenticationPluginIT : BaseIntegrationTest() {
 
     @Autowired
     lateinit var objectMapper: ObjectMapper
+
+    @Autowired
+    lateinit var notificatiesApiClient: NotificatiesApiClient
 
     @Test
     @Transactional
@@ -107,6 +114,67 @@ internal class HttpClientAuthenticationPluginIT : BaseIntegrationTest() {
             assertEquals(UUID.fromString(OBJECT_ID), result.uuid)
             assertEquals(TlsFixtures.CLIENT_SUBJECT, server.receivedClientCertificateSubject)
             assertEquals("Token 1e2804e1113e083fb1f8258d161a2e222c317987", server.receivedAuthorization)
+        }
+    }
+
+    @Test
+    @Transactional
+    fun `should send notificaties and manage kanalen and abonnementen through a gateway that requires mutual TLS`() {
+        MtlsTestServer(responses = notificatiesApiResponses()).use { server ->
+            val plugin = notificatiesApiPlugin(server, mtlsProperties() + OPEN_NOTIFICATIES_JWT)
+            val authentication = plugin.authenticationPluginConfiguration
+
+            plugin.publishNotificatie(
+                kanaal = "zaken",
+                hoofdObject = URI("https://example.com/zaken/api/v1/zaken/$ZAAK_ID"),
+                resource = "zaak",
+                resourceUrl = URI("https://example.com/zaken/api/v1/zaken/$ZAAK_ID"),
+                actie = "create",
+                aanmaakdatum = null,
+                kenmerken = null,
+            )
+            plugin.ensureKanalenExist(setOf("zaken"))
+            val abonnement =
+                notificatiesApiClient.createAbonnement(
+                    authentication,
+                    plugin.url,
+                    Abonnement(
+                        callbackUrl = CALLBACK_URL,
+                        auth = "callback-secret",
+                        kanalen = listOf(Abonnement.Kanaal(naam = "zaken")),
+                    ),
+                )
+            notificatiesApiClient.deleteAbonnement(authentication, plugin.url, abonnement.getId()!!)
+
+            assertEquals(
+                listOf(
+                    "POST /api/v1/notificaties",
+                    "GET /api/v1/kanaal",
+                    "POST /api/v1/kanaal",
+                    "POST /api/v1/abonnement",
+                    "DELETE /api/v1/abonnement/$ABONNEMENT_ID",
+                ),
+                server.receivedRequests.map { it.request },
+            )
+            server.receivedRequests.forEach { received ->
+                assertEquals(TlsFixtures.CLIENT_SUBJECT, received.clientCertificateSubject, received.request)
+                assertTrue(received.authorization!!.startsWith("Bearer "), received.request)
+            }
+        }
+    }
+
+    @Test
+    @Transactional
+    fun `should not reach Open Notificaties behind a gateway that requires mutual TLS without a client certificate`() {
+        MtlsTestServer(responses = notificatiesApiResponses()).use { server ->
+            val properties = OPEN_NOTIFICATIES_JWT + mapOf("serverCertificate" to TlsFixtures.CA_CERTIFICATE)
+            val plugin = notificatiesApiPlugin(server, properties)
+
+            assertThrows<ResourceAccessException> { plugin.ensureKanalenExist(setOf("zaken")) }
+            assertThrows<ResourceAccessException> {
+                notificatiesApiClient.getAbonnementen(plugin.authenticationPluginConfiguration, plugin.url)
+            }
+            assertTrue(server.receivedRequests.isEmpty())
         }
     }
 
@@ -227,6 +295,51 @@ internal class HttpClientAuthenticationPluginIT : BaseIntegrationTest() {
             pluginDefinitionKey,
         )
 
+    private fun notificatiesApiPlugin(
+        server: MtlsTestServer,
+        authenticationProperties: Map<String, String>,
+    ): NotificatiesApiPlugin {
+        val authentication =
+            createConfiguration("Open Notificaties gateway ${UUID.randomUUID()}", authenticationProperties, PLUGIN_KEY)
+        val notificatiesApi =
+            createConfiguration(
+                "Notificaties API via gateway ${UUID.randomUUID()}",
+                mapOf(
+                    "url" to "${server.baseUrl}/api/v1/",
+                    "callbackUrl" to CALLBACK_URL,
+                    "authenticationPluginConfiguration" to authentication.id.id.toString(),
+                ),
+                "notificatiesapi",
+            )
+        return pluginService.createInstance(notificatiesApi.id) as NotificatiesApiPlugin
+    }
+
+    private fun notificatiesApiResponses() =
+        mapOf(
+            "POST /api/v1/notificaties" to
+                """
+                {
+                  "kanaal": "zaken",
+                  "hoofdObject": "https://example.com/zaken/api/v1/zaken/$ZAAK_ID",
+                  "resource": "zaak",
+                  "resourceUrl": "https://example.com/zaken/api/v1/zaken/$ZAAK_ID",
+                  "actie": "create",
+                  "aanmaakdatum": "2026-10-22T10:00:00"
+                }
+                """.trimIndent(),
+            "GET /api/v1/kanaal" to "[]",
+            "POST /api/v1/kanaal" to """{ "naam": "zaken", "filters": [] }""",
+            "POST /api/v1/abonnement" to
+                """
+                {
+                  "url": "https://example.com/api/v1/abonnement/$ABONNEMENT_ID",
+                  "callbackUrl": "$CALLBACK_URL",
+                  "auth": "callback-secret",
+                  "kanalen": [{ "naam": "zaken", "filters": {} }]
+                }
+                """.trimIndent(),
+        )
+
     private fun objectResponse() =
         """
         {
@@ -240,5 +353,14 @@ internal class HttpClientAuthenticationPluginIT : BaseIntegrationTest() {
     companion object {
         private const val PLUGIN_KEY = "http-client-authentication-plugin"
         private const val OBJECT_ID = "1e9b6d4c-5b1a-4b3e-9f7a-2c8d0e6f4a11"
+        private const val ZAAK_ID = "5d2a8f61-0c3e-4b7a-9e1d-3f6b8a0c2e47"
+        private const val ABONNEMENT_ID = "8b3e1c70-6d2f-4a95-b0e4-7c9a1f3d5e28"
+        private const val CALLBACK_URL = "https://valtimo.example.com/api/v1/notificatiesapi/callback"
+        private val OPEN_NOTIFICATIES_JWT =
+            mapOf(
+                "authenticationType" to "ZGW_JWT",
+                "clientId" to "valtimo",
+                "authSecret" to "a7f0c2e9b14d4e6f8a3b5c7d9e1f2a4b",
+            )
     }
 }

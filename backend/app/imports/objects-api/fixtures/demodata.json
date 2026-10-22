@@ -955,5 +955,23 @@
         "fields": {
             "notifications_api_service_id": 2
         }
+    },
+    {
+        "model": "core.objecttype",
+        "pk": 8,
+        "fields": {
+            "service": 1,
+            "uuid": "a6f2e8b1-6c3d-4f7e-9b2a-1d5c8e0f3a74",
+            "_name": "Verzoek"
+        }
+    },
+    {
+        "model": "token.permission",
+        "pk": 9,
+        "fields": {
+            "token_auth": 51,
+            "object_type": 8,
+            "mode": "read_and_write"
+        }
     }
 ]
