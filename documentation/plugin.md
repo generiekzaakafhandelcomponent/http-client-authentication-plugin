@@ -2,27 +2,18 @@
 
 ## Overview
 
-The Http Client Authentication plugin authenticates outbound REST clients. A configured instance applies an
-authentication header (bearer token, custom header, `Authorization: Token` or a ZGW JWT) to a Spring
-`RestClient.Builder`, and can additionally present a client certificate (mutual TLS) and trust a specific server
-certificate.
+The Http Client Authentication plugin tells GZAC how to log in to an external API. A configuration holds the
+credentials (a token, a client ID and secret, or a custom header) and, when the API requires it, the certificates for a
+secure connection (mutual TLS).
 
-It can be used in two ways:
+You can select a configuration of this plugin as the authentication of the ZGW API plugins: Zaken API, Documenten API,
+Catalogi API, Besluiten API, Notificaties API, Objecten API, Objecttypen API and Klantinteracties API. Other plugins
+that call an external API can use it as well.
 
-- as the authentication of the GZAC ZGW API plugins: Zaken API, Documenten API, Catalogi API, Besluiten API,
-  Notificaties API, Objecten API, Objecttypen API and Klantinteracties API. The plugin implements each of their
-  authentication categories, so a configuration of it can be selected in their "authentication" field, in place of the
-  OpenZaak, Notificaties API Authentication, Object Token Authentication or OpenKlant Token Authentication plugins;
-- by other plugins that depend on the `http-client-authentication` `@PluginCategory`.
+## Installation
 
-## Requirements
-
-From version 3.0.0 the plugin needs the GZAC ZGW modules on the host application's classpath, as provided by
-`com.ritense.valtimo:valtimo-gzac-dependencies`: `zaken-api`, `documenten-api`, `catalogi-api`, `besluiten-api`,
-`notificaties-api`, `objecten-api`, `objecttypen-api`, `klantinteracties-api` and `openzaak-plugin-authentication`.
-A Valtimo application without them fails to start with this version; use version 2.x there.
-
-## Dependencies
+From version 3.0.0 the plugin needs a GZAC application (with the ZGW modules). For a Valtimo application without
+them, use version 2.x.
 
 ### Backend
 
@@ -64,55 +55,72 @@ import {
 })
 ```
 
-## Configuration
+## Configuring the plugin
 
-| Property           | Type            | Required                              | Description                                                                                         |
-|--------------------|-----------------|---------------------------------------|-----------------------------------------------------------------------------------------------------|
-| authenticationType | enum            | Yes                                   | One of `NONE`, `BEARER`, `HEADER`, `TOKEN`, `ZGW_JWT`. Determines which authentication header is set |
-| authHeaderName     | string          | Only for `HEADER`                     | Name of the header that carries `authSecret`                                                        |
-| authSecret         | string (secret) | For `BEARER`, `HEADER`, `TOKEN`, `ZGW_JWT` | The bearer token, the header value, the token, or the client secret                             |
-| clientId           | string          | Only for `ZGW_JWT`                    | The client ID put in the ZGW JWT                                                                    |
-| clientCertificate  | string (PEM)    | No                                    | Client certificate (chain) presented for mutual TLS. Leave empty to turn mutual TLS off             |
-| clientPrivateKey   | string (secret, PEM) | When `clientCertificate` is set  | Unencrypted private key of the client certificate (PKCS#8, PKCS#1 or EC)                            |
-| serverCertificate  | string (PEM)    | No                                    | CA or server certificate to trust instead of the JVM's default trust store                          |
+Go to **Admin > Plugins**, click **Configure plugin** and choose **Http Client Authentication Plugin**.
 
-### Authentication types
+### Authentication type
 
-- `NONE` — no authentication header is added.
-- `BEARER` — sets `Authorization: Bearer <authSecret>`.
-- `HEADER` — sets a custom header named `authHeaderName` with value `authSecret`.
-- `TOKEN` — sets `Authorization: Token <authSecret>`, as used by the Objecten, Objecttypen and Klantinteracties APIs.
-- `ZGW_JWT` ("Client ID / secret") — sets `Authorization: Bearer <jwt>`, where the JWT is signed with `authSecret`
-  for `clientId`, exactly as the OpenZaak plugin does for Open Zaak. The secret must be at least 32 characters.
+Choose how GZAC logs in to the API:
 
-### Mutual TLS and the server certificate
+| Authentication type             | Use it for                                    | Fields to fill in                                      |
+|---------------------------------|-----------------------------------------------|--------------------------------------------------------|
+| **Client ID / secret (ZGW JWT)** | Open Zaak and Open Notificaties               | **Client ID** and **Client secret** (at least 32 characters) |
+| **Token**                       | Objecten, Objecttypen and Klantinteracties API | **Authentication secret**: the API token               |
+| **Bearer**                      | APIs that expect a bearer token               | **Authentication secret**: the token                   |
+| **Header**                      | APIs that expect a key in a header of their own | **Authentication header name** (for example `X-Api-Key`) and **Authentication secret** |
+| **None**                        | APIs without authentication                   | –                                                      |
 
-The certificate fields take PEM text as-is, for example the contents of the files passed to curl's `--cert`, `--key`
-and `--cacert`:
+Secrets are not shown again after saving. When you edit a configuration, leave the secret empty to keep the stored
+one. If you switch to another authentication type, enter the secret again.
 
-- With a `clientCertificate` and `clientPrivateKey`, every call presents that certificate to the server.
-- With a `serverCertificate`, the server is trusted when its certificate is, or chains to, that certificate; the JVM's
-  default trust store is then not used for this configuration. Without it, the JVM's default trust store applies.
-- In the configuration screen the certificate fields are behind the "Certificates (mutual TLS)" toggle. It is on when
-  a client or server certificate is stored. Saving with the toggle off removes both certificates.
-- The client certificate is the switch for mutual TLS. The private key is a secret and is not shown again after
-  saving; leaving it empty when editing keeps the stored key. To turn mutual TLS off, empty the client certificate.
-- Saving is refused when the client certificate has no private key, when the private key does not belong to the
-  client certificate, or when a field does not contain valid PEM. The error names the field.
-  This also applies to autodeployed configurations (`*.pluginconfig.json`): an invalid one stops the application
-  from starting.
-  In a `*.pluginconfig.json` file, PEM text is a JSON string with its line breaks written as `\n`.
-- Password-protected private keys are not supported.
-- Calls use Valtimo's `valtimo.http.rest-client` connect, connection-request and read timeouts, as other outbound calls
-  do.
-- Mutual TLS applies to `RestClient`-based calls (`applyAuth`). The deprecated WebClient filter of the ZGW
-  authentication interfaces only adds the authentication header.
+### Certificates (mutual TLS)
 
-## Actions
+Some APIs are behind a gateway that only accepts calls from a known client certificate, or use a certificate that is
+not publicly trusted. Turn on **Certificates (mutual TLS)** to fill in:
 
-This plugin does not expose any process actions (`@PluginAction`). It only implements the `HttpClientAuthenticator`
-interface (`@PluginCategory("http-client-authentication")`), so it is meant to be referenced by other plugins that
-need to authenticate outbound HTTP calls, for example:
+- **Client certificate (PEM)** – the certificate GZAC presents to the API. Paste the contents of the `.pem` or `.crt`
+  file, starting with `-----BEGIN CERTIFICATE-----`. Leave it empty if the API does not ask for a client certificate.
+- **Client certificate private key (PEM)** – the private key that belongs to the client certificate, starting with
+  `-----BEGIN PRIVATE KEY-----` (or `RSA PRIVATE KEY` / `EC PRIVATE KEY`). Keys protected with a password are not
+  supported. The key is not shown again after saving; when editing, leave it empty to keep the stored key.
+- **Server certificate (PEM)** – optional. The certificate (or CA certificate) of the API to trust. Fill it in when the
+  API uses a certificate that is not publicly trusted, for example one issued by an internal CA. When it is filled in,
+  only that certificate is trusted for this configuration.
+
+To stop using certificates, turn the toggle off and save. The certificates are removed. A stored private key stays
+saved but is no longer used.
+
+When saving, GZAC checks the configuration and shows which field is wrong, for example when the private key does not
+belong to the client certificate, when a field does not contain a valid certificate, or when a required field is empty.
+
+### Using it in a ZGW API plugin
+
+1. Create a configuration of this plugin as described above, with the authentication type the API expects.
+2. Open the configuration of the ZGW API plugin (for example **Zaken API** or **Objecten API**) and select your
+   configuration in its authentication field.
+
+## Configuration files
+
+Configurations can also be deployed with a `*.pluginconfig.json` file. These are checked in the same way as in the
+screen; an invalid configuration stops the application from starting. The property names are:
+
+| Property             | Field in the screen                    | Values                                              |
+|----------------------|----------------------------------------|-----------------------------------------------------|
+| `authenticationType` | Authentication type                    | `ZGW_JWT`, `TOKEN`, `BEARER`, `HEADER` or `NONE`    |
+| `clientId`           | Client ID                              |                                                     |
+| `authSecret`         | Client secret / Authentication secret  |                                                     |
+| `authHeaderName`     | Authentication header name             |                                                     |
+| `clientCertificate`  | Client certificate (PEM)               | PEM text, with line breaks written as `\n`          |
+| `clientPrivateKey`   | Client certificate private key (PEM)   | PEM text, with line breaks written as `\n`          |
+| `serverCertificate`  | Server certificate (PEM)               | PEM text, with line breaks written as `\n`          |
+
+See the [Example Application](example-application.md) for complete examples.
+
+## Using it from another plugin
+
+A plugin that calls an external API can let users pick a configuration of this plugin. Add a `@PluginProperty` of type
+`HttpClientAuthenticator`, and call `applyAuth` on the `RestClient.Builder` before making the call:
 
 ```kotlin
 class SomeOtherPlugin(
@@ -126,18 +134,4 @@ class SomeOtherPlugin(
 }
 ```
 
-## Usage
-
-### As authentication of a ZGW API plugin
-
-1. Create a configuration of the Http Client Authentication plugin with the authentication type the API expects
-   (`ZGW_JWT` for Open Zaak and Open Notificaties, `TOKEN` for the Objecten, Objecttypen and Klantinteracties APIs),
-   and the certificate fields when the API is behind a gateway that requires mutual TLS.
-2. In the Zaken API, Objecten API or other ZGW API plugin configuration, select it as the authentication plugin.
-
-### From another plugin
-
-1. Create a configuration of the Http Client Authentication plugin, choosing an authentication type (see above).
-2. In a plugin that performs outbound REST calls, add a `@PluginProperty` of type `HttpClientAuthenticator` so a
-   user can link a configured instance of this plugin to it.
-3. Call `applyAuth(builder)` on the injected `HttpClientAuthenticator` before executing the outbound request.
+The plugin has no process actions.
