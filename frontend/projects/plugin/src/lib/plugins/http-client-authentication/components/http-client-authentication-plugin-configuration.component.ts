@@ -64,6 +64,9 @@ export class HttpClientAuthenticationPluginConfigurationComponent
     // The private key is a secret and never sent back, so an unchanged certificate keeps its stored key
     private prefilledClientCertificate = '';
 
+    // Secrets are never sent back either, so an unchanged authentication type keeps its stored secret
+    private prefilledAuthenticationType = '';
+
     selectedAuthType$ = new BehaviorSubject(this.bearerRadio)
 
     // Frontend-only switch: the certificate fields are shown, validated and saved only while it is on
@@ -72,6 +75,7 @@ export class HttpClientAuthenticationPluginConfigurationComponent
     ngOnInit(): void {
         this.prefillConfiguration$.pipe(map(config => {
             this.prefilledClientCertificate = config?.clientCertificate?.trim() ?? '';
+            this.prefilledAuthenticationType = config?.authenticationType ?? '';
             this.tlsEnabled$.next(!!(this.prefilledClientCertificate || config?.serverCertificate?.trim()));
             this.selectAuthType(config?.authenticationType);
         })).subscribe();
@@ -116,14 +120,15 @@ export class HttpClientAuthenticationPluginConfigurationComponent
     }
 
     private authenticationValid(formValue: HttpClientAuthenticationPluginConfig): boolean {
+        const secretValid = !!formValue.authSecret || formValue.authenticationType === this.prefilledAuthenticationType;
         switch (formValue.authenticationType) {
             case this.bearerRadio.value:
             case this.tokenRadio.value:
-                return !!formValue.authSecret;
+                return secretValid;
             case this.headerRadio.value:
-                return !!(formValue.authHeaderName && formValue.authSecret);
+                return !!formValue.authHeaderName && secretValid;
             case this.zgwJwtRadio.value:
-                return !!(formValue.clientId && formValue.authSecret);
+                return !!formValue.clientId && secretValid && (!formValue.authSecret || formValue.authSecret.length >= 32);
             case this.noneRadio.value:
                 return true;
             default:

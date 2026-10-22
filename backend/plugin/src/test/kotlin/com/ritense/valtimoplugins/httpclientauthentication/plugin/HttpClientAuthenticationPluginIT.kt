@@ -252,7 +252,7 @@ internal class HttpClientAuthenticationPluginIT : BaseIntegrationTest() {
 
     @Test
     @Transactional
-    fun `should not reach the Objecttypen API behind a gateway that requires mutual TLS without a client certificate`() {
+    fun `should not reach the Objecttypen API behind an mTLS gateway without a client certificate`() {
         MtlsTestServer(responses = objecttypenApiResponses()).use { server ->
             val properties = mtlsProperties() - setOf("clientCertificate", "clientPrivateKey")
             val plugin = objecttypenApiPlugin(server, properties)
@@ -325,7 +325,7 @@ internal class HttpClientAuthenticationPluginIT : BaseIntegrationTest() {
 
         val plugin = pluginService.createInstance(configuration.id) as HttpClientAuthenticationPlugin
         assertEquals(TlsFixtures.CLIENT_PRIVATE_KEY, plugin.clientPrivateKey)
-        plugin.validateTlsConfiguration()
+        plugin.validateConfiguration()
     }
 
     @Test

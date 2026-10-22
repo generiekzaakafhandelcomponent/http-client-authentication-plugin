@@ -109,7 +109,7 @@
                     [fullWidth]="true"
                     [defaultValue]="obs.prefill?.authSecret"
                     [disabled]="obs.disabled"
-                    [required]="true"
+                    [required]="!obs.prefill"
             >
             </v-input>
         </ng-container>

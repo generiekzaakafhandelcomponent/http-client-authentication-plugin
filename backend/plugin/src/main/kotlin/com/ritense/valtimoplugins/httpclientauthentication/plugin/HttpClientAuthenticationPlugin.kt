@@ -66,10 +66,10 @@ class HttpClientAuthenticationPlugin(
     lateinit var authenticationType: AuthenticationType
 
     @PluginProperty(key = "authHeaderName", secret = false, required = false)
-    lateinit var authHeaderName: String
+    var authHeaderName: String? = null
 
     @PluginProperty(key = "authSecret", secret = true, required = false)
-    lateinit var authSecret: String
+    var authSecret: String? = null
 
     @PluginProperty(key = "clientId", secret = false, required = false)
     var clientId: String? = null
@@ -84,7 +84,8 @@ class HttpClientAuthenticationPlugin(
     var serverCertificate: String? = null
 
     @PluginEvent(invokedOn = [EventType.CREATE, EventType.UPDATE])
-    fun validateTlsConfiguration() {
+    fun validateConfiguration() {
+        setAuthHeaders(HttpHeaders())
         tlsMaterial().takeIf { it.isConfigured }?.toSslBundle()
     }
 
@@ -112,28 +113,30 @@ class HttpClientAuthenticationPlugin(
     private fun setAuthHeaders(headers: HttpHeaders) {
         when (authenticationType) {
             AuthenticationType.BEARER -> {
-                headers.setBearerAuth(authSecret)
+                headers.setBearerAuth(required(authSecret, "authSecret"))
             }
 
             AuthenticationType.HEADER -> {
-                headers.set(authHeaderName, authSecret)
+                headers.set(required(authHeaderName, "authHeaderName"), required(authSecret, "authSecret"))
             }
 
             AuthenticationType.TOKEN -> {
-                headers.set(HttpHeaders.AUTHORIZATION, "Token $authSecret")
+                headers.set(HttpHeaders.AUTHORIZATION, "Token ${required(authSecret, "authSecret")}")
             }
 
             AuthenticationType.ZGW_JWT -> {
-                val clientId =
-                    requireNotNull(clientId?.takeIf { it.isNotBlank() }) {
-                        "Property 'clientId' is required for authentication type ZGW_JWT"
-                    }
-                headers.setBearerAuth(tokenGeneratorService.generateToken(authSecret, clientId))
+                val secret = required(authSecret, "authSecret")
+                headers.setBearerAuth(tokenGeneratorService.generateToken(secret, required(clientId, "clientId")))
             }
 
             AuthenticationType.NONE -> Unit
         }
     }
+
+    private fun required(value: String?, property: String): String =
+        requireNotNull(value?.takeIf { it.isNotBlank() }) {
+            "Property '$property' is required for authentication type $authenticationType"
+        }
 
     private fun tlsMaterial() = TlsMaterial(clientCertificate, clientPrivateKey, serverCertificate)
 

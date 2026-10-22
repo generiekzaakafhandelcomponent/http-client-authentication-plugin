@@ -139,6 +139,28 @@ internal class HttpClientAuthenticationPluginTest {
     }
 
     @Test
+    fun `should require auth secret for TOKEN`() {
+        val plugin = plugin(AuthenticationType.TOKEN)
+
+        val exception = assertThrows<IllegalArgumentException> { plugin.validateConfiguration() }
+
+        assertEquals("Property 'authSecret' is required for authentication type TOKEN", exception.message)
+    }
+
+    @Test
+    fun `should refuse a client secret shorter than 32 characters for ZGW_JWT`() {
+        val plugin =
+            plugin(AuthenticationType.ZGW_JWT) {
+                clientId = "valtimo_client"
+                authSecret = "shorter-than-32-characters"
+            }
+
+        val exception = assertThrows<IllegalStateException> { plugin.validateConfiguration() }
+
+        assertEquals("SecretKey needs to be at least 32 in length", exception.message)
+    }
+
+    @Test
     fun `should apply the same headers through the WebClient filter`() {
         val plugin = plugin(AuthenticationType.TOKEN) { authSecret = "secret-token" }
         var sentAuthorization: String? = null
@@ -182,7 +204,7 @@ internal class HttpClientAuthenticationPluginTest {
         val plugin = plugin(AuthenticationType.NONE) { clientPrivateKey = TlsFixtures.CLIENT_PRIVATE_KEY }
         val builder = mock<RestClient.Builder>(defaultAnswer = Answers.RETURNS_SELF)
 
-        plugin.validateTlsConfiguration()
+        plugin.validateConfiguration()
         plugin.applyAuth(builder)
 
         verify(builder, never()).requestFactory(any())
@@ -294,7 +316,7 @@ internal class HttpClientAuthenticationPluginTest {
                 clientPrivateKey = TlsFixtures.PSS_CLIENT_PRIVATE_KEY
             }
 
-        plugin.validateTlsConfiguration()
+        plugin.validateConfiguration()
     }
 
     @Test
@@ -429,7 +451,7 @@ internal class HttpClientAuthenticationPluginTest {
         plugin: HttpClientAuthenticationPlugin,
         message: String,
     ) {
-        val onSave = assertThrows<IllegalArgumentException> { plugin.validateTlsConfiguration() }
+        val onSave = assertThrows<IllegalArgumentException> { plugin.validateConfiguration() }
         val onUse = assertThrows<IllegalArgumentException> { plugin.applyAuth(RestClient.builder()) }
 
         assertEquals(message, onSave.message)

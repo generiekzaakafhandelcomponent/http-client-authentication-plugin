@@ -27,6 +27,7 @@ describe('HttpClientAuthenticationPluginConfigurationComponent', () => {
     const certificate = '-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----';
     const renewedCertificate = '-----BEGIN CERTIFICATE-----\nMIIC\n-----END CERTIFICATE-----';
     const privateKey = '-----BEGIN PRIVATE KEY-----\nMIIE\n-----END PRIVATE KEY-----';
+    const clientSecret = 'a-client-secret-of-at-least-32-characters';
 
     let component: HttpClientAuthenticationPluginConfigurationComponent;
     let save$: Subject<void>;
@@ -65,10 +66,20 @@ describe('HttpClientAuthenticationPluginConfigurationComponent', () => {
         expect(isValid({authenticationType: 'HEADER', authSecret: 'secret'})).toBeFalse();
         expect(isValid({authenticationType: 'TOKEN', authSecret: 'token'})).toBeTrue();
         expect(isValid({authenticationType: 'TOKEN'})).toBeFalse();
-        expect(isValid({authenticationType: 'ZGW_JWT', clientId: 'valtimo_client', authSecret: 'secret'})).toBeTrue();
-        expect(isValid({authenticationType: 'ZGW_JWT', authSecret: 'secret'})).toBeFalse();
+        expect(isValid({authenticationType: 'ZGW_JWT', clientId: 'valtimo_client', authSecret: clientSecret})).toBeTrue();
+        expect(isValid({authenticationType: 'ZGW_JWT', clientId: 'valtimo_client', authSecret: 'secret'})).toBeFalse();
+        expect(isValid({authenticationType: 'ZGW_JWT', authSecret: clientSecret})).toBeFalse();
         expect(isValid({authenticationType: 'ZGW_JWT', clientId: 'valtimo_client'})).toBeFalse();
         expect(isValid({authenticationType: 'NONE'})).toBeTrue();
+    });
+
+    it('keeps the stored secret while the prefilled authentication type is unchanged', () => {
+        create({authenticationType: 'ZGW_JWT', clientId: 'valtimo_client'});
+
+        expect(isValid({authenticationType: 'ZGW_JWT', clientId: 'valtimo_client'})).toBeTrue();
+        expect(isValid({authenticationType: 'ZGW_JWT', clientId: 'valtimo_client', authSecret: 'secret'})).toBeFalse();
+        expect(isValid({authenticationType: 'TOKEN'})).toBeFalse();
+        expect(isValid({authenticationType: 'TOKEN', authSecret: 'token'})).toBeTrue();
     });
 
     it('requires a configuration name', () => {
