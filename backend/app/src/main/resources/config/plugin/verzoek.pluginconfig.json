@@ -4,7 +4,7 @@
         "title": "Verzoek (Autodeployed)",
         "pluginDefinitionKey": "verzoek",
         "properties": {
-            "notificatiesApiPluginConfiguration": "020e6ca3-1c15-4496-a4cf-67bfaa36332f",
+            "notificatiesApiPluginConfiguration": "7c0b1a52-4f0e-4c55-9a0e-6f3e7e2a1d07",
             "processToStart": "create-zaakdossier",
             "rsin": "002564440",
             "verzoekProperties": [
@@ -13,7 +13,7 @@
                     "caseDefinitionKey": "example",
                     "processDefinitionKey": "example-process",
                     "objectManagementId": "4f0f9a52-2a3b-4c1d-8e6f-5a7b9c0d1e21",
-                    "initiatorRoltypeUrl": "http://localhost:8001/catalogi/api/v1/roltypen/1c359a1b-c38d-47b8-bed5-994db88ead61",
+                    "initiatorRoltypeUrl": "https://127.0.0.1:8444/catalogi/api/v1/roltypen/1c359a1b-c38d-47b8-bed5-994db88ead61",
                     "initiatorRolDescription": "Aanvrager",
                     "copyStrategy": "specified",
                     "mapping": [

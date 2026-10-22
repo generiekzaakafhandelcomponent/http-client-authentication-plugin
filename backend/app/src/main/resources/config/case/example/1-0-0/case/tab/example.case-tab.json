@@ -12,6 +12,12 @@
         "contentKey": "progress"
     },
     {
+        "name": "Documents",
+        "key": "documents",
+        "type": "standard",
+        "contentKey": "documents"
+    },
+    {
         "name": "Audit",
         "key": "audit",
         "type": "standard",

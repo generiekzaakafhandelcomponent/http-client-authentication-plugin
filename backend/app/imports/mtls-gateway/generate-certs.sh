@@ -4,8 +4,12 @@
 # them, together with the plugin configurations that use them, to:
 #   - certs/ca.pem, certs/ca-key.pem          : CA that signs the server and client certificate
 #   - certs/server.pem, certs/server-key.pem  : certificate the gateway presents (localhost, 127.0.0.1, host.docker.internal)
-#   - certs/client.pem, certs/client-key.pem  : client certificate the gateway requires
-#   - src/main/resources/config/plugin/mtls-gateway.pluginconfig.json
+#   - certs/client.pem, certs/client-key.pem  : client certificate Valtimo presents to the gateway
+#   - certs/objecten-api.pem, certs/objecten-api-key.pem
+#                                             : client certificate the Objecten API presents to the gateway on its
+#                                               route to the Objecttypen API (imports/objects-api/fixtures/demodata.json)
+#   - src/main/resources/config/plugin/mtls-gateway.pluginconfig.json: the certificates of every Http Client
+#     Authentication configuration in it
 #
 # For local testing only. Run from anywhere: ./backend/app/imports/mtls-gateway/generate-certs.sh
 
@@ -45,6 +49,11 @@ openssl req -newkey rsa:2048 -nodes -keyout client-key.pem -out "$WORK_DIR/clien
 openssl x509 -req -in "$WORK_DIR/client.csr" -CA ca.pem -CAkey ca-key.pem -CAserial "$WORK_DIR/ca.srl" \
   -days "$DAYS" -extfile "$WORK_DIR/client.ext" -out client.pem
 
+openssl req -newkey rsa:2048 -nodes -keyout objecten-api-key.pem -out "$WORK_DIR/objecten-api.csr" \
+  -subj "/CN=objecten-api-sandbox-client"
+openssl x509 -req -in "$WORK_DIR/objecten-api.csr" -CA ca.pem -CAkey ca-key.pem -CAserial "$WORK_DIR/ca.srl" \
+  -days "$DAYS" -extfile "$WORK_DIR/client.ext" -out objecten-api.pem
+
 python3 - "$CERTS_DIR" "$PLUGIN_CONFIG" <<'EOF'
 import json, pathlib, sys
 
@@ -55,48 +64,12 @@ tls = {
     "clientPrivateKey": pem("client-key.pem"),
     "serverCertificate": pem("ca.pem"),
 }
-configs = [
-    {
-        "id": "7c0b1a52-4f0e-4c55-9a0e-6f3e7e2a1d01",
-        "title": "Objects API Authentication via mTLS gateway (Autodeployed)",
-        "pluginDefinitionKey": "http-client-authentication-plugin",
-        "properties": {
-            "authenticationType": "TOKEN",
-            "authSecret": "182c13e2209161852c53cef53a879f7a2f923430",
-            **tls,
-        },
-    },
-    {
-        "id": "7c0b1a52-4f0e-4c55-9a0e-6f3e7e2a1d02",
-        "title": "Objects API via mTLS gateway (Autodeployed)",
-        "pluginDefinitionKey": "objectenapi",
-        "properties": {
-            "url": "https://127.0.0.1:8443/api/v2/",
-            "authenticationPluginConfiguration": "7c0b1a52-4f0e-4c55-9a0e-6f3e7e2a1d01",
-        },
-    },
-    {
-        "id": "7c0b1a52-4f0e-4c55-9a0e-6f3e7e2a1d03",
-        "title": "Open Zaak Authentication via mTLS gateway (Autodeployed)",
-        "pluginDefinitionKey": "http-client-authentication-plugin",
-        "properties": {
-            "authenticationType": "ZGW_JWT",
-            "clientId": "valtimo_client",
-            "authSecret": "e09b8bc5-5831-4618-ab28-41411304309d",
-            **tls,
-        },
-    },
-    {
-        "id": "7c0b1a52-4f0e-4c55-9a0e-6f3e7e2a1d04",
-        "title": "Catalogi API via mTLS gateway (Autodeployed)",
-        "pluginDefinitionKey": "catalogiapi",
-        "properties": {
-            "url": "https://127.0.0.1:8444/catalogi/api/v1/",
-            "authenticationPluginConfiguration": "7c0b1a52-4f0e-4c55-9a0e-6f3e7e2a1d03",
-        },
-    },
-]
-pathlib.Path(sys.argv[2]).write_text(json.dumps(configs, indent=4) + "\n")
+config_file = pathlib.Path(sys.argv[2])
+configs = json.loads(config_file.read_text())
+for config in configs:
+    if config["pluginDefinitionKey"] == "http-client-authentication-plugin":
+        config["properties"].update(tls)
+config_file.write_text(json.dumps(configs, indent=4) + "\n")
 EOF
 
 echo "Certificates written to $CERTS_DIR"

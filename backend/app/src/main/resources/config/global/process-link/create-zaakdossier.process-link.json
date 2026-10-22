@@ -3,7 +3,7 @@
         "activityId": "create-zaak",
         "activityType": "bpmn:ServiceTask:start",
         "processLinkType": "plugin",
-        "pluginConfigurationId": "3079d6fe-42e3-4f8f-a9db-52ce2507b7ee",
+        "pluginConfigurationId": "7c0b1a52-4f0e-4c55-9a0e-6f3e7e2a1d05",
         "pluginActionDefinitionKey": "create-zaak",
         "actionProperties": {
             "rsin": "pv:RSIN",
@@ -14,7 +14,7 @@
         "activityId": "create-initiator-zaak-rol",
         "activityType": "bpmn:ServiceTask:start",
         "processLinkType": "plugin",
-        "pluginConfigurationId": "3079d6fe-42e3-4f8f-a9db-52ce2507b7ee",
+        "pluginConfigurationId": "7c0b1a52-4f0e-4c55-9a0e-6f3e7e2a1d05",
         "pluginActionDefinitionKey": "create-natuurlijk-persoon-zaak-rol",
         "actionProperties": {
             "roltypeUrl": "pv:rolTypeUrl",
@@ -26,7 +26,7 @@
         "activityId": "create-initiator-zaak-rol-kvk",
         "activityType": "bpmn:ServiceTask:start",
         "processLinkType": "plugin",
-        "pluginConfigurationId": "3079d6fe-42e3-4f8f-a9db-52ce2507b7ee",
+        "pluginConfigurationId": "7c0b1a52-4f0e-4c55-9a0e-6f3e7e2a1d05",
         "pluginActionDefinitionKey": "create-niet-natuurlijk-persoon-zaak-rol",
         "actionProperties": {
             "roltypeUrl": "pv:rolTypeUrl",
@@ -38,7 +38,7 @@
         "activityId": "link-document-to-zaak",
         "activityType": "bpmn:ServiceTask:start",
         "processLinkType": "plugin",
-        "pluginConfigurationId": "3079d6fe-42e3-4f8f-a9db-52ce2507b7ee",
+        "pluginConfigurationId": "7c0b1a52-4f0e-4c55-9a0e-6f3e7e2a1d05",
         "pluginActionDefinitionKey": "link-document-to-zaak",
         "actionProperties": {
             "documentUrl": "pv:documentUrl",
