@@ -17,10 +17,9 @@
 
 package com.ritense.valtimoplugins.httpclientauthentication.tokenexchange
 
+import com.ritense.valtimoplugins.httpclientauthentication.sha256Hex
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.http.client.ClientHttpRequestFactory
-import java.security.MessageDigest
-import java.util.HexFormat
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionException
 import java.util.concurrent.ConcurrentHashMap
@@ -45,7 +44,7 @@ class TokenExchangeTokenCache(
         requestFactory: () -> ClientHttpRequestFactory?,
     ): String {
         val key = keyOf(config, tlsKey)
-        validToken(key)?.let { return it }
+        validToken(key)?.let { return it.accessToken }
 
         val exchange = CompletableFuture<CachedAccessToken>()
         val running = exchanges.putIfAbsent(key, exchange)
@@ -59,7 +58,7 @@ class TokenExchangeTokenCache(
         try {
             // Another exchange may have finished between the first check and claiming this one
             val token =
-                tokens[key]?.takeUnless { it.isExpired() } ?: exchangeToken(config, requestFactory()).also {
+                validToken(key) ?: exchangeToken(config, requestFactory()).also {
                     tokens.values.removeIf(CachedAccessToken::isExpired)
                     tokens[key] = it
                 }
@@ -73,7 +72,7 @@ class TokenExchangeTokenCache(
         }
     }
 
-    private fun validToken(key: String): String? = tokens[key]?.takeUnless { it.isExpired() }?.accessToken
+    private fun validToken(key: String): CachedAccessToken? = tokens[key]?.takeUnless { it.isExpired() }
 
     private fun exchangeToken(
         config: TokenExchangeConfig,
@@ -88,21 +87,15 @@ class TokenExchangeTokenCache(
     private fun keyOf(
         config: TokenExchangeConfig,
         tlsKey: String,
-    ): String {
-        val sha256 = MessageDigest.getInstance("SHA-256")
-        listOf(
+    ): String =
+        sha256Hex(
             config.tokenEndpoint.toString(),
             config.clientId,
             config.clientSecret,
             config.audience,
             config.scope,
             tlsKey,
-        ).forEach {
-            sha256.update((it ?: "").toByteArray())
-            sha256.update(0)
-        }
-        return HexFormat.of().formatHex(sha256.digest())
-    }
+        )
 
     companion object {
         private val logger = KotlinLogging.logger {}

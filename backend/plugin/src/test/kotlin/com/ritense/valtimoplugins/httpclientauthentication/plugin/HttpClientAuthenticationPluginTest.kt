@@ -563,7 +563,13 @@ internal class HttpClientAuthenticationPluginTest {
             throw IllegalStateException("Keycloak is down")
         }
         val tokenCache = TokenExchangeTokenCache(tokenExchangeClient)
-        val executor = Executors.newFixedThreadPool(4)
+        val threads = mutableListOf<Thread>()
+        val executor =
+            Executors.newFixedThreadPool(4) { task ->
+                Thread(task).also {
+                    synchronized(threads) { threads.add(it) }
+                }
+            }
 
         try {
             val requests =
@@ -583,8 +589,14 @@ internal class HttpClientAuthenticationPluginTest {
                     }
                 }
             exchanging.await(10, TimeUnit.SECONDS)
-            // The other requests are waiting for the running exchange by now
-            Thread.sleep(500)
+            // The other three requests wait (without timeout) for the running exchange, which waits with a timeout
+            val deadline = System.currentTimeMillis() + 10_000
+            while (synchronized(threads) { threads.count { it.state == Thread.State.WAITING } } < 3) {
+                check(
+                    System.currentTimeMillis() < deadline,
+                ) { "The other requests didn't wait for the running exchange" }
+                Thread.sleep(10)
+            }
             release.countDown()
 
             val failures = requests.map { it.get(10, TimeUnit.SECONDS) }

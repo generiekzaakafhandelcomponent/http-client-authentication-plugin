@@ -35,6 +35,7 @@ object ZgwJwt {
     private const val FALLBACK_USER = "Valtimo"
     private val objectMapper = ObjectMapper()
     private val base64 = Base64.getUrlEncoder().withoutPadding()
+    private val header = base64.encodeToString(objectMapper.writeValueAsBytes(mapOf("alg" to "HS256", "typ" to "JWT")))
 
     fun generate(
         clientId: String,
@@ -48,7 +49,6 @@ object ZgwJwt {
             )
         claims.putAll(userClaims())
 
-        val header = base64.encodeToString(objectMapper.writeValueAsBytes(mapOf("alg" to "HS256", "typ" to "JWT")))
         val payload = base64.encodeToString(objectMapper.writeValueAsBytes(claims))
         val mac = Mac.getInstance(ALGORITHM).apply { init(SecretKeySpec(secret.toByteArray(), ALGORITHM)) }
         val signature = base64.encodeToString(mac.doFinal("$header.$payload".toByteArray()))

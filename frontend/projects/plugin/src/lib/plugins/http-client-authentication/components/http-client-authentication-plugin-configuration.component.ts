@@ -17,7 +17,7 @@
 
 import {PluginConfigurationComponent} from "@valtimo/plugin";
 import {Component, EventEmitter, Input, OnDestroy, OnInit, Output} from "@angular/core";
-import {BehaviorSubject, combineLatest, map, Observable, Subscription, take} from "rxjs";
+import {BehaviorSubject, combineLatest, Observable, Subscription, take} from "rxjs";
 import {
     HttpClientAuthenticationPluginConfig
 } from "../models/http-client-authentication-plugin-config";
@@ -92,7 +92,7 @@ export class HttpClientAuthenticationPluginConfigurationComponent
     readonly tlsSource$ = new BehaviorSubject<TlsSource>('PEM');
 
     ngOnInit(): void {
-        this.prefillSubscription = this.prefillConfiguration$.pipe(map(config => {
+        this.prefillSubscription = this.prefillConfiguration$.subscribe(config => {
             this.formValue$.next(null);
             this.valid$.next(false);
             this.formVersion$.next(this.formVersion$.getValue() + 1);
@@ -104,7 +104,7 @@ export class HttpClientAuthenticationPluginConfigurationComponent
             this.tlsEnabled$.next(keystore || !!(this.prefilledClientCertificate || config?.serverCertificate?.trim()));
             this.tlsSource$.next(keystore ? 'KEYSTORE' : 'PEM');
             this.selectAuthType(config?.authenticationType);
-        })).subscribe();
+        });
         this.openSaveSubscription();
     }
 
