@@ -29,7 +29,7 @@ mutual TLS work in every application.
 
 ```kotlin
 dependencies {
-    implementation("com.ritense.valtimoplugins:http-client-authentication:2.1.0")
+    implementation("com.ritense.valtimoplugins:http-client-authentication:3.0.0")
 }
 ```
 
@@ -38,7 +38,7 @@ dependencies {
 ```json
 {
   "dependencies": {
-    "@valtimo-plugins/http-client-authentication": "2.1.0"
+    "@valtimo-plugins/http-client-authentication": "3.0.0"
   }
 }
 ```
@@ -67,7 +67,7 @@ import {
 
 ## Configuring the plugin
 
-Go to **Admin > Plugins**, click **Configure plugin** and choose **Http Client Authentication Plugin**.
+Go to **Admin > Plugins**, click **Configure plugin** and choose **Http Client Authentication**.
 
 ### Authentication type
 
@@ -187,7 +187,7 @@ class SomeOtherPlugin(
 }
 ```
 
-Look the plugin up by the `HttpClientAuthenticator` interface or by its key `http-client-authentication-plugin`, not
+Look the plugin up by the `HttpClientAuthenticator` interface or by its key `http-client-authentication`, not
 by a plugin class: the class differs per application (see below).
 
 `applyAuth` sets the credentials on every request of the built client, and the certificates through the client's
@@ -211,4 +211,17 @@ The classes live in packages under `valtimoplugins.httpclientauthentication.vari
 selected one, for example because `valtimo.annotation-scan.accepted-packages` includes
 `valtimoplugins.httpclientauthentication`, the application stops at startup with a message that says which class it
 expected.
+
+## Upgrading to 3.0.0
+
+`3.0.0` changes the plugin key from `http-client-authentication-plugin` to `http-client-authentication`, the key the
+Valtimo 12 versions use since `2.1.1-V12`, and the title to "Http Client Authentication". Existing configurations move
+to the new key when the application starts, with their secrets, and the plugins that use them keep working. A Valtimo
+12 application that upgrades to Valtimo 13 keeps its configurations too.
+
+- Update the backend and frontend together. The frontend `pluginId` must equal the backend key.
+- In `*.pluginconfig.json` files, change `pluginDefinitionKey` to `http-client-authentication` and keep the ids. A file
+  that still uses the old key stops the application from starting.
+- Code that looks the plugin up by its key needs the new key.
+- Stop all nodes before starting `3.0.0`: nodes with another plugin version can't share the database.
 
