@@ -657,7 +657,7 @@ internal class HttpClientAuthenticationPluginIT : BaseIntegrationTest() {
         """.trimIndent()
 
     companion object {
-        private const val PLUGIN_KEY = "http-client-authentication-plugin"
+        private const val PLUGIN_KEY = "http-client-authentication"
         private const val OBJECT_ID = "1e9b6d4c-5b1a-4b3e-9f7a-2c8d0e6f4a11"
         private const val ZAAK_ID = "5d2a8f61-0c3e-4b7a-9e1d-3f6b8a0c2e47"
         private const val ABONNEMENT_ID = "8b3e1c70-6d2f-4a95-b0e4-7c9a1f3d5e28"

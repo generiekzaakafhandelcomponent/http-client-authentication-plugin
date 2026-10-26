@@ -26,7 +26,7 @@ const httpClientAuthenticationPluginSpecification: PluginSpecification = {
     The plugin definition key of the plugin.
     This needs to be the same as the id received from the back-end
      */
-    pluginId: 'http-client-authentication-plugin',
+    pluginId: 'http-client-authentication',
     /*
     A component of the interface PluginConfigurationComponent, used to configure the plugin itself.
      */
@@ -43,8 +43,8 @@ const httpClientAuthenticationPluginSpecification: PluginSpecification = {
             configurationTitle: 'Configuratienaam',
             configurationTitlePlaceholder: 'Client Authentication',
             configurationTitleTooltip:
-                'Http Client Authentication Plugin',
-            title: 'Http Client Authentication Plugin',
+                'Http Client Authentication',
+            title: 'Http Client Authentication',
             description: 'Biedt authenticatie en mutual TLS voor uitgaande REST clients, waaronder de ZGW API plugins',
             authenticationType: 'Authenticatie type',
             authHeaderName: 'Authenticatie header naam',
@@ -98,8 +98,8 @@ const httpClientAuthenticationPluginSpecification: PluginSpecification = {
             configurationTitle: 'Configuration name',
             configurationTitlePlaceholder: 'Client Authentication',
             configurationTitleTooltip:
-                'Http Client Authentication Plugin',
-            title: 'Http Client Authentication Plugin',
+                'Http Client Authentication',
+            title: 'Http Client Authentication',
             description: 'Provides authentication and mutual TLS for outbound REST clients, including the ZGW API plugins',
             authenticationType: 'Authentication type',
             authHeaderName: 'Authentication header name',
