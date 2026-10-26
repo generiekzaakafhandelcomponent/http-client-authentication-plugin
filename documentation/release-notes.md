@@ -4,7 +4,7 @@ Overzicht van wijzigingen per versie van de Http Client Authentication plugin.
 
 ## 2.1.0
 
-Compatibel met Valtimo 13.
+Compatibel met Valtimo 13, met ondersteuning voor Valtimo 13.51.0.
 
 ### Nieuw
 
@@ -41,8 +41,6 @@ Compatibel met Valtimo 13.
   bestaande configuraties meeneemt.
 - **Logging:** Valtimo logt request bodies op DEBUG (`LoggingRestClientCustomizer`). Bij token exchange staat daarin
   het client secret; zet die logging niet aan in productie.
-
-Ondersteuning voor Valtimo 13.51.0.
 
 ## 2.0.1
 
