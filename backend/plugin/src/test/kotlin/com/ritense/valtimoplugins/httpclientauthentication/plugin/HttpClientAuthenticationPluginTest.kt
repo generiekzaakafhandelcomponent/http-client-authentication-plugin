@@ -866,6 +866,11 @@ internal class HttpClientAuthenticationPluginTest {
         assertSame(requestFactoryOf(plugin("left-over")), requestFactoryOf(plugin("changed")))
     }
 
+    @Test
+    fun `should keep the one-argument exchangeToken for callers compiled against 2_1`() {
+        TokenExchangeClient::class.java.getMethod("exchangeToken", TokenExchangeConfig::class.java)
+    }
+
     private fun tokenExchangePlugin(
         tokenCache: TokenExchangeTokenCache,
         cache: TlsRequestFactoryCache = TlsRequestFactoryCache(restClientProperties),
