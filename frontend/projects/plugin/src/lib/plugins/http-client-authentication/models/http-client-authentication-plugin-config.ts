@@ -22,9 +22,17 @@ interface HttpClientAuthenticationPluginConfig extends PluginConfigurationData {
     authHeaderName: string;
     authSecret: string;
     clientId?: string;
+    clientSecret?: string;
+    tokenEndpoint?: string;
+    audience?: string;
+    scope?: string;
     clientCertificate?: string;
     clientPrivateKey?: string;
     serverCertificate?: string;
+    keystorePath?: string;
+    keystoreSecret?: string;
+    truststorePath?: string;
+    truststoreSecret?: string;
 }
 
 export {HttpClientAuthenticationPluginConfig};

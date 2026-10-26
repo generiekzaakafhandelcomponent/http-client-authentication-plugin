@@ -26,27 +26,39 @@ import org.springframework.http.client.ClientHttpRequestFactory
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory
 import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
+import javax.net.ssl.SSLContext
+import javax.net.ssl.X509ExtendedTrustManager
 
 // Plugin instances are rebuilt per use, so the connection pools live here instead
 class TlsRequestFactoryCache(
     private val restClientProperties: ValtimoHttpRestClientConfigurationProperties,
+    private val defaultTrustManager: X509ExtendedTrustManager = TlsMaterial.jvmDefaultTrustManager(),
 ) {
     private val requestFactories = ConcurrentHashMap<String, ClientHttpRequestFactory>()
 
+    /** For the API calls: trusts only the configured server certificates, if any. */
     fun requestFactory(tlsMaterial: TlsMaterial): ClientHttpRequestFactory =
-        requestFactories.computeIfAbsent(tlsMaterial.digest) { createRequestFactory(tlsMaterial) }
+        requestFactories.computeIfAbsent(tlsMaterial.digest) { createRequestFactory(tlsMaterial.sslContext()) }
 
-    private fun createRequestFactory(tlsMaterial: TlsMaterial): ClientHttpRequestFactory {
+    /** For the token endpoint: also trusts the servers the JVM trusts. */
+    fun tokenEndpointRequestFactory(tlsMaterial: TlsMaterial): ClientHttpRequestFactory =
+        requestFactories.computeIfAbsent("token-endpoint:${tlsMaterial.digest}") {
+            createRequestFactory(tlsMaterial.sslContextAlsoTrusting(defaultTrustManager))
+        }
+
+    private fun createRequestFactory(sslContext: SSLContext): ClientHttpRequestFactory {
         val connectionManager =
             PoolingHttpClientConnectionManagerBuilder
                 .create()
-                .setTlsSocketStrategy(DefaultClientTlsStrategy(tlsMaterial.toSslBundle().createSslContext()))
+                .setTlsSocketStrategy(DefaultClientTlsStrategy(sslContext))
                 .build()
         val httpClient =
             HttpClients
                 .custom()
                 .useSystemProperties()
                 .setConnectionManager(connectionManager)
+                // The pool is per certificate set already; its client principal as state would block reuse
+                .disableConnectionState()
                 .build()
         // Same timeouts and buffering as Valtimo's ApacheRequestFactoryCustomizer
         val requestFactory =

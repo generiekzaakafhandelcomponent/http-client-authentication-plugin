@@ -18,25 +18,45 @@ package com.ritense.valtimoplugins.httpclientauthentication.plugin
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.ritense.plugin.domain.PluginConfigurationId
+import com.ritense.valtimo.contract.client.HostDockerInternalRestClientCustomizer
 import com.ritense.valtimo.contract.client.ValtimoHttpRestClientConfigurationProperties
 import com.ritense.valtimoplugins.httpclientauthentication.model.AuthenticationType
 import com.ritense.valtimoplugins.httpclientauthentication.tls.MtlsTestServer
 import com.ritense.valtimoplugins.httpclientauthentication.tls.TlsFixtures
 import com.ritense.valtimoplugins.httpclientauthentication.tls.TlsRequestFactoryCache
+import com.ritense.valtimoplugins.httpclientauthentication.tokenexchange.TokenExchangeClient
+import com.ritense.valtimoplugins.httpclientauthentication.tokenexchange.TokenExchangeConfig
+import com.ritense.valtimoplugins.httpclientauthentication.tokenexchange.TokenExchangeTokenCache
+import com.ritense.valtimoplugins.httpclientauthentication.tokenexchange.TokenExchangeTokenResponse
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.io.TempDir
 import org.mockito.Answers
 import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
+import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
+import org.mockito.kotlin.whenever
+import org.springframework.boot.ssl.pem.PemContent
+import org.springframework.boot.ssl.pem.PemSslStore
+import org.springframework.boot.ssl.pem.PemSslStoreBundle
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.client.BufferingClientHttpRequestFactory
 import org.springframework.http.client.ClientHttpRequestFactory
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
+import org.springframework.security.core.authority.SimpleGrantedAuthority
+import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.test.util.ReflectionTestUtils
+import org.springframework.test.web.client.ExpectedCount
+import org.springframework.test.web.client.MockRestServiceServer
+import org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo
+import org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess
 import org.springframework.web.client.ResourceAccessException
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.body
@@ -45,11 +65,20 @@ import org.springframework.web.reactive.function.client.WebClient
 import reactor.core.publisher.Mono
 import valtimoplugins.httpclientauthentication.variant.z00000000.HttpClientAuthenticationPlugin
 import java.net.SocketTimeoutException
+import java.net.URI
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.attribute.FileTime
 import java.time.Duration
 import java.util.Base64
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 import javax.net.ssl.SSLHandshakeException
+import javax.net.ssl.TrustManagerFactory
+import javax.net.ssl.X509ExtendedTrustManager
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
@@ -58,6 +87,14 @@ import kotlin.test.assertTrue
 
 internal class HttpClientAuthenticationPluginTest {
     private val restClientProperties = ValtimoHttpRestClientConfigurationProperties()
+
+    private val tokenExchangeClient =
+        mock<TokenExchangeClient> {
+            on { exchangeToken(any(), anyOrNull()) } doReturn TokenExchangeTokenResponse("exchanged-jwt", 300)
+        }
+
+    @TempDir
+    lateinit var temporaryDirectory: Path
 
     // Built the way Valtimo's shared RestClient.Builder is, and used per request the way the ZGW clients use it
     private val sharedRestClientBuilder =
@@ -135,7 +172,7 @@ internal class HttpClientAuthenticationPluginTest {
 
         val exception = assertThrows<IllegalArgumentException> { headersOf(plugin) }
 
-        assertEquals("Property 'clientId' is required for authentication type ZGW_JWT", exception.message)
+        assertEquals("Authentication type ZGW_JWT requires the properties: clientId", exception.message)
     }
 
     @Test
@@ -144,7 +181,7 @@ internal class HttpClientAuthenticationPluginTest {
 
         val exception = assertThrows<IllegalArgumentException> { plugin.validateConfiguration() }
 
-        assertEquals("Property 'authSecret' is required for authentication type TOKEN", exception.message)
+        assertEquals("Authentication type TOKEN requires the properties: authSecret", exception.message)
     }
 
     @Test
@@ -450,6 +487,383 @@ internal class HttpClientAuthenticationPluginTest {
         assertFalse(first === third)
     }
 
+    @Test
+    fun `should set the header on every request, also behind Valtimo's docker filter`() {
+        val builder = RestClient.builder()
+        HostDockerInternalRestClientCustomizer(listOf(8080), false, 8080).customize(builder)
+        val plugin = plugin(AuthenticationType.BEARER) { authSecret = "secret-bearer-token" }
+
+        val headers = headersOfRequests(plugin, requests = 2, builder = builder)
+
+        assertEquals(
+            listOf("Bearer secret-bearer-token", "Bearer secret-bearer-token"),
+            headers.map { it.getFirst(HttpHeaders.AUTHORIZATION) },
+        )
+    }
+
+    @Test
+    fun `should make the ZGW JWT per request, for the user of that request`() {
+        val plugin =
+            plugin(AuthenticationType.ZGW_JWT) {
+                clientId = "valtimo_client"
+                authSecret = "a-client-secret-of-at-least-32-characters"
+            }
+        val users = mutableListOf("jan.jansen", "piet.pietersen")
+
+        try {
+            val headers =
+                headersOfRequests(plugin, requests = 2) {
+                    SecurityContextHolder.getContext().authentication =
+                        UsernamePasswordAuthenticationToken(
+                            users.removeFirst(),
+                            null,
+                            listOf(SimpleGrantedAuthority("ROLE_USER")),
+                        )
+                }
+
+            assertEquals(listOf("jan.jansen", "piet.pietersen"), headers.map { claimsOf(it)["user_id"].asText() })
+        } finally {
+            SecurityContextHolder.clearContext()
+        }
+    }
+
+    @Test
+    fun `should send the exchanged token, exchanging once for separate plugin instances`() {
+        val tokenCache = TokenExchangeTokenCache(tokenExchangeClient)
+
+        repeat(2) {
+            assertEquals(
+                "Bearer exchanged-jwt",
+                headersOf(tokenExchangePlugin(tokenCache)).getFirst(HttpHeaders.AUTHORIZATION),
+            )
+        }
+
+        verify(tokenExchangeClient, times(1)).exchangeToken(any(), anyOrNull())
+    }
+
+    @Test
+    fun `should exchange a new token when the client secret changes`() {
+        val tokenCache = TokenExchangeTokenCache(tokenExchangeClient)
+
+        headersOf(tokenExchangePlugin(tokenCache))
+        headersOf(tokenExchangePlugin(tokenCache) { clientSecret = "rotated-client-secret" })
+
+        val configs = argumentCaptor<TokenExchangeConfig>()
+        verify(tokenExchangeClient, times(2)).exchangeToken(configs.capture(), anyOrNull())
+        assertEquals(listOf("client-secret", "rotated-client-secret"), configs.allValues.map { it.clientSecret })
+    }
+
+    @Test
+    fun `should exchange once for concurrent first requests, share its failure, and retry afterwards`() {
+        val exchanging = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        whenever(tokenExchangeClient.exchangeToken(any(), anyOrNull())).thenAnswer {
+            exchanging.countDown()
+            release.await(10, TimeUnit.SECONDS)
+            throw IllegalStateException("Keycloak is down")
+        }
+        val tokenCache = TokenExchangeTokenCache(tokenExchangeClient)
+        val executor = Executors.newFixedThreadPool(4)
+
+        try {
+            val requests =
+                (1..4).map {
+                    executor.submit<Throwable?> {
+                        runCatching {
+                            tokenExchangePlugin(
+                                tokenCache,
+                            ).applyAuth(
+                                RestClient.builder(),
+                            ).build()
+                                .get()
+                                .uri(RESOURCE_URL)
+                                .retrieve()
+                                .toBodilessEntity()
+                        }.exceptionOrNull()
+                    }
+                }
+            exchanging.await(10, TimeUnit.SECONDS)
+            // The other requests are waiting for the running exchange by now
+            Thread.sleep(500)
+            release.countDown()
+
+            val failures = requests.map { it.get(10, TimeUnit.SECONDS) }
+            assertTrue(
+                failures.all { failure ->
+                    generateSequence(failure) { it.cause }.any { it.message == "Keycloak is down" }
+                },
+                failures.toString(),
+            )
+            verify(tokenExchangeClient, times(1)).exchangeToken(any(), anyOrNull())
+        } finally {
+            executor.shutdownNow()
+        }
+
+        whenever(tokenExchangeClient.exchangeToken(any(), anyOrNull()))
+            .thenReturn(TokenExchangeTokenResponse("exchanged-jwt", 300))
+        assertEquals(
+            "Bearer exchanged-jwt",
+            headersOf(tokenExchangePlugin(tokenCache)).getFirst(HttpHeaders.AUTHORIZATION),
+        )
+    }
+
+    @Test
+    fun `should present the client certificate to the token endpoint, also when only the JVM trusts it`() {
+        // The CA of the token endpoint is only in the default trust (injected here), the configured one is another
+        val cache = TlsRequestFactoryCache(restClientProperties, trustManagerOf(TlsFixtures.CA_CERTIFICATE))
+        val keycloak =
+            MtlsTestServer(
+                responses =
+                    mapOf(
+                        "POST /token" to """{"access_token":"exchanged-over-mtls","expires_in":300}""",
+                    ),
+            )
+        keycloak.use {
+            val plugin =
+                tokenExchangePlugin(TokenExchangeTokenCache(TokenExchangeClient(RestClient.builder())), cache) {
+                    tokenEndpoint = URI("${keycloak.baseUrl}/token")
+                    clientCertificate = TlsFixtures.CLIENT_CERTIFICATE
+                    clientPrivateKey = TlsFixtures.CLIENT_PRIVATE_KEY
+                    serverCertificate = TlsFixtures.PSS_CLIENT_CERTIFICATE
+                }
+
+            val headers = headersOf(plugin)
+
+            assertEquals("Bearer exchanged-over-mtls", headers.getFirst(HttpHeaders.AUTHORIZATION))
+            assertEquals(
+                listOf(TlsFixtures.CLIENT_SUBJECT, TlsFixtures.CLIENT_SUBJECT),
+                keycloak.receivedRequests.map { it.clientCertificateSubject },
+            )
+        }
+    }
+
+    @Test
+    fun `should not fall back to the JVM trust for the API calls`() {
+        val cache = TlsRequestFactoryCache(restClientProperties, trustManagerOf(TlsFixtures.CA_CERTIFICATE))
+        MtlsTestServer().use { server ->
+            val plugin =
+                plugin(AuthenticationType.NONE, cache) {
+                    clientCertificate = TlsFixtures.CLIENT_CERTIFICATE
+                    clientPrivateKey = TlsFixtures.CLIENT_PRIVATE_KEY
+                    serverCertificate = TlsFixtures.PSS_CLIENT_CERTIFICATE
+                }
+
+            assertThrows<ResourceAccessException> { call(plugin, server.baseUrl) }
+        }
+    }
+
+    @Test
+    fun `should present a client certificate from a JKS or PKCS12 keystore`() {
+        listOf("JKS", "PKCS12").forEach { type ->
+            MtlsTestServer().use { server ->
+                val plugin =
+                    plugin(AuthenticationType.TOKEN) {
+                        authSecret = "secret-token"
+                        keystorePath = TlsFixtures.clientKeystore(type, temporaryDirectory).toString()
+                        keystoreSecret = TlsFixtures.KEYSTORE_SECRET
+                        truststorePath = TlsFixtures.truststore(type, temporaryDirectory).toString()
+                        truststoreSecret = TlsFixtures.KEYSTORE_SECRET
+                    }
+
+                plugin.validateConfiguration()
+                call(plugin, server.baseUrl)
+
+                assertEquals(TlsFixtures.CLIENT_SUBJECT, server.receivedClientCertificateSubject, type)
+                assertEquals("Token secret-token", server.receivedAuthorization, type)
+            }
+        }
+    }
+
+    @Test
+    fun `should refuse certificates both as PEM and as keystore files`() {
+        val pemClientCertificate: HttpClientAuthenticationPluginBase.() -> Unit = {
+            clientCertificate = TlsFixtures.CLIENT_CERTIFICATE
+            clientPrivateKey = TlsFixtures.CLIENT_PRIVATE_KEY
+        }
+        val pemServerCertificate: HttpClientAuthenticationPluginBase.() -> Unit = {
+            serverCertificate = TlsFixtures.CA_CERTIFICATE
+        }
+        val keystore: HttpClientAuthenticationPluginBase.() -> Unit = {
+            keystorePath = "/certs/client.jks"
+            keystoreSecret = "secret"
+        }
+        val truststore: HttpClientAuthenticationPluginBase.() -> Unit = {
+            truststorePath = "/certs/truststore.jks"
+            truststoreSecret = "secret"
+        }
+
+        listOf(
+            listOf(pemClientCertificate, keystore),
+            listOf(pemServerCertificate, truststore),
+            listOf(keystore, pemServerCertificate),
+            listOf(pemClientCertificate, truststore),
+        ).forEach { sources ->
+            val plugin = plugin(AuthenticationType.NONE) { sources.forEach { it() } }
+
+            val exception = assertThrows<IllegalArgumentException> { plugin.validateConfiguration() }
+
+            assertEquals(
+                "Configure the certificates either as PEM (clientCertificate, serverCertificate) or as keystore " +
+                    "files (keystorePath, truststorePath), not both",
+                exception.message,
+            )
+        }
+    }
+
+    @Test
+    fun `should require the secret of a keystore path`() {
+        val plugin =
+            plugin(AuthenticationType.NONE) {
+                keystorePath = "/certs/client.jks"
+                truststorePath = "/certs/truststore.jks"
+            }
+
+        val exception = assertThrows<IllegalArgumentException> { plugin.validateConfiguration() }
+
+        assertEquals(
+            "keystoreSecret is required when keystorePath is configured; " +
+                "truststoreSecret is required when truststorePath is configured",
+            exception.message,
+        )
+    }
+
+    @Test
+    fun `should save a keystore path this node can't read, and name it on use`() {
+        val plugin =
+            plugin(AuthenticationType.NONE) {
+                keystorePath = temporaryDirectory.resolve("missing.jks").toString()
+                keystoreSecret = TlsFixtures.KEYSTORE_SECRET
+            }
+
+        plugin.validateConfiguration()
+        val exception = assertThrows<IllegalArgumentException> { plugin.applyAuth(RestClient.builder()) }
+
+        assertEquals(
+            "Property 'keystorePath' does not point to a readable keystore (NoSuchFileException)",
+            exception.message,
+        )
+    }
+
+    @Test
+    fun `should name the keystore secret when it doesn't open the keystore`() {
+        listOf("JKS", "PKCS12").forEach { type ->
+            val plugin =
+                plugin(AuthenticationType.NONE) {
+                    keystorePath = TlsFixtures.clientKeystore(type, temporaryDirectory).toString()
+                    keystoreSecret = "wrong-secret"
+                }
+
+            val exception = assertThrows<IllegalArgumentException>(type) { plugin.applyAuth(RestClient.builder()) }
+
+            assertEquals(
+                "Property 'keystoreSecret' does not open the keystore in 'keystorePath'",
+                exception.message,
+                type,
+            )
+        }
+    }
+
+    @Test
+    fun `should ignore stored keystore secrets whose path is empty`() {
+        MtlsTestServer().use { server ->
+            val plugin =
+                plugin(AuthenticationType.NONE) {
+                    keystoreSecret = "left-over-secret"
+                    truststoreSecret = "left-over-secret"
+                    clientCertificate = TlsFixtures.CLIENT_CERTIFICATE
+                    clientPrivateKey = TlsFixtures.CLIENT_PRIVATE_KEY
+                    serverCertificate = TlsFixtures.CA_CERTIFICATE
+                }
+
+            plugin.validateConfiguration()
+            call(plugin, server.baseUrl)
+
+            assertEquals(TlsFixtures.CLIENT_SUBJECT, server.receivedClientCertificateSubject)
+        }
+    }
+
+    @Test
+    fun `should make a new request factory when the keystore file is replaced`() {
+        val cache = TlsRequestFactoryCache(restClientProperties)
+        val keystore = TlsFixtures.clientKeystore("PKCS12", temporaryDirectory)
+        val plugin = {
+            plugin(AuthenticationType.NONE, cache) {
+                keystorePath = keystore.toString()
+                keystoreSecret = TlsFixtures.KEYSTORE_SECRET
+            }
+        }
+
+        val first = requestFactoryOf(plugin())
+        assertSame(first, requestFactoryOf(plugin()))
+        Files.setLastModifiedTime(
+            keystore,
+            FileTime.fromMillis(Files.getLastModifiedTime(keystore).toMillis() + 60_000),
+        )
+
+        assertFalse(first === requestFactoryOf(plugin()))
+    }
+
+    @Test
+    fun `should reuse the mutual TLS connection for the next request`() {
+        MtlsTestServer().use { server ->
+            val plugin =
+                plugin(AuthenticationType.NONE) {
+                    clientCertificate = TlsFixtures.CLIENT_CERTIFICATE
+                    clientPrivateKey = TlsFixtures.CLIENT_PRIVATE_KEY
+                    serverCertificate = TlsFixtures.CA_CERTIFICATE
+                }
+
+            call(plugin, server.baseUrl)
+            call(plugin, server.baseUrl)
+
+            assertEquals(
+                1,
+                server.receivedRequests
+                    .map { it.clientPort }
+                    .distinct()
+                    .size,
+            )
+        }
+    }
+
+    private fun tokenExchangePlugin(
+        tokenCache: TokenExchangeTokenCache,
+        cache: TlsRequestFactoryCache = TlsRequestFactoryCache(restClientProperties),
+        configure: HttpClientAuthenticationPluginBase.() -> Unit = {},
+    ) = plugin(AuthenticationType.TOKEN_EXCHANGE, cache, tokenCache) {
+        tokenEndpoint = URI("https://keycloak.example.com/token")
+        clientId = "client"
+        clientSecret = "client-secret"
+        audience = "haal-centraal"
+        configure()
+    }
+
+    private fun requestFactoryOf(plugin: HttpClientAuthenticationPluginBase) =
+        argumentCaptor<ClientHttpRequestFactory>()
+            .apply {
+                val builder = mock<RestClient.Builder>(defaultAnswer = Answers.RETURNS_SELF)
+                plugin.applyAuth(builder)
+                verify(builder).requestFactory(capture())
+            }.firstValue
+
+    private fun trustManagerOf(certificate: String): X509ExtendedTrustManager =
+        TrustManagerFactory
+            .getInstance(TrustManagerFactory.getDefaultAlgorithm())
+            .apply {
+                init(
+                    PemSslStoreBundle(null, PemSslStore.of(PemContent.of(certificate).certificates, null)).trustStore,
+                )
+            }.trustManagers
+            .filterIsInstance<X509ExtendedTrustManager>()
+            .first()
+
+    private fun claimsOf(headers: HttpHeaders) =
+        ObjectMapper().readTree(
+            Base64.getUrlDecoder().decode(
+                headers.getFirst(HttpHeaders.AUTHORIZATION)!!.removePrefix("Bearer ").split(".")[1],
+            ),
+        )
+
     private fun assertTlsError(
         plugin: HttpClientAuthenticationPluginBase,
         message: String,
@@ -474,21 +888,47 @@ internal class HttpClientAuthenticationPluginTest {
             .retrieve()
             .body<String>()
 
-    private fun headersOf(plugin: HttpClientAuthenticationPluginBase): HttpHeaders {
-        val headers = HttpHeaders()
-        val builder = RestClient.builder()
+    // The headers of the requests a client built with applyAuth sends, one per request
+    private fun headersOfRequests(
+        plugin: HttpClientAuthenticationPluginBase,
+        requests: Int = 1,
+        builder: RestClient.Builder = RestClient.builder(),
+        beforeEachRequest: () -> Unit = {},
+    ): List<HttpHeaders> {
+        val sent = mutableListOf<HttpHeaders>()
         plugin.applyAuth(builder)
-        builder.build().mutate().defaultHeaders { headers.addAll(it) }
-        return headers
+        val server = MockRestServiceServer.bindTo(builder).build()
+        server
+            .expect(ExpectedCount.times(requests), requestTo(RESOURCE_URL))
+            .andExpect { request -> sent.add(HttpHeaders().apply { putAll(request.headers) }) }
+            .andRespond(withSuccess())
+        val restClient = builder.build()
+        repeat(requests) {
+            beforeEachRequest()
+            restClient
+                .get()
+                .uri(RESOURCE_URL)
+                .retrieve()
+                .toBodilessEntity()
+        }
+        server.verify()
+        return sent
     }
+
+    private fun headersOf(plugin: HttpClientAuthenticationPluginBase): HttpHeaders = headersOfRequests(plugin).single()
 
     private fun plugin(
         type: AuthenticationType,
         cache: TlsRequestFactoryCache = TlsRequestFactoryCache(restClientProperties),
+        tokenCache: TokenExchangeTokenCache = TokenExchangeTokenCache(tokenExchangeClient),
         configure: HttpClientAuthenticationPluginBase.() -> Unit = {},
-    ) = HttpClientAuthenticationPlugin(PluginConfigurationId.newId(), cache).also {
+    ) = HttpClientAuthenticationPlugin(PluginConfigurationId.newId(), cache, tokenCache).also {
         // Not apply: the plugin is an ExchangeFilterFunction, whose own apply(ExchangeFunction) would win
         it.authenticationType = type
         it.configure()
+    }
+
+    companion object {
+        private const val RESOURCE_URL = "https://api.example.com/resource"
     }
 }

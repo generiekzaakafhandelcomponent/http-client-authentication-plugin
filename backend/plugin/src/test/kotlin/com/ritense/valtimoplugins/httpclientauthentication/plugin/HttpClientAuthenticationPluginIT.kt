@@ -37,10 +37,13 @@ import com.ritense.valtimoplugins.httpclientauthentication.tls.MtlsTestServer
 import com.ritense.valtimoplugins.httpclientauthentication.tls.TlsFixtures
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.io.TempDir
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.client.ResourceAccessException
+import org.springframework.web.client.RestClient
 import java.net.URI
+import java.nio.file.Path
 import java.util.UUID
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -61,6 +64,9 @@ internal class HttpClientAuthenticationPluginIT : BaseIntegrationTest() {
 
     @Autowired
     lateinit var notificatiesApiClient: NotificatiesApiClient
+
+    @TempDir
+    lateinit var temporaryDirectory: Path
 
     @Test
     @Transactional
@@ -98,9 +104,17 @@ internal class HttpClientAuthenticationPluginIT : BaseIntegrationTest() {
                 "authHeaderName" to false,
                 "authSecret" to true,
                 "clientId" to false,
+                "clientSecret" to true,
+                "tokenEndpoint" to false,
+                "audience" to false,
+                "scope" to false,
                 "clientCertificate" to false,
                 "clientPrivateKey" to true,
                 "serverCertificate" to false,
+                "keystorePath" to false,
+                "keystoreSecret" to true,
+                "truststorePath" to false,
+                "truststoreSecret" to true,
             ),
             definition.properties.associate { it.fieldName to it.secret },
         )
@@ -373,6 +387,116 @@ internal class HttpClientAuthenticationPluginIT : BaseIntegrationTest() {
             "Property 'clientPrivateKey' does not belong to the certificate in 'clientCertificate'",
         )
         assertFalse(pluginConfigurationRepository.existsById(PluginConfigurationId.existingId(id)))
+    }
+
+    @Test
+    @Transactional
+    fun `should call the Objecten API with an exchanged token and keystores, configured the way 2_1_1-V12 stores it`() {
+        val keycloak =
+            MtlsTestServer(responses = mapOf("POST /token" to """{"access_token":"exchanged-jwt","expires_in":300}"""))
+        keycloak.use {
+            MtlsTestServer(responseBody = objectResponse()).use { server ->
+                val authentication =
+                    createConfiguration(
+                        "Token exchange with keystores",
+                        mapOf(
+                            "authenticationType" to "TOKEN_EXCHANGE",
+                            "tokenEndpoint" to "${keycloak.baseUrl}/token",
+                            "clientId" to "valtimo",
+                            "clientSecret" to "client-secret",
+                            "audience" to "objecten-api",
+                            "keystorePath" to TlsFixtures.clientKeystore("JKS", temporaryDirectory).toString(),
+                            "keystoreSecret" to TlsFixtures.KEYSTORE_SECRET,
+                            "truststorePath" to TlsFixtures.truststore("JKS", temporaryDirectory).toString(),
+                            "truststoreSecret" to TlsFixtures.KEYSTORE_SECRET,
+                        ),
+                        PLUGIN_KEY,
+                    )
+                val objectenApi =
+                    createConfiguration(
+                        "Objecten API with token exchange",
+                        mapOf(
+                            "url" to "${server.baseUrl}/api/v2/",
+                            "authenticationPluginConfiguration" to authentication.id.id.toString(),
+                        ),
+                        "objectenapi",
+                    )
+                val plugin = pluginService.createInstance(objectenApi.id) as ObjectenApiPlugin
+
+                val result =
+                    runWithoutAuthorization { plugin.getObject(URI("${server.baseUrl}/api/v2/objects/$OBJECT_ID")) }
+
+                assertEquals(UUID.fromString(OBJECT_ID), result.uuid)
+                assertEquals("Bearer exchanged-jwt", server.receivedAuthorization)
+                assertEquals(TlsFixtures.CLIENT_SUBJECT, server.receivedClientCertificateSubject)
+                assertEquals(
+                    listOf(TlsFixtures.CLIENT_SUBJECT, TlsFixtures.CLIENT_SUBJECT),
+                    keycloak.receivedRequests.map { it.clientCertificateSubject },
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `should autodeploy a keystore path that doesn't exist on this node`() {
+        val id = UUID.randomUUID()
+        val properties =
+            mapOf(
+                "authenticationType" to "BEARER",
+                "authSecret" to "secret-token",
+                "keystorePath" to "/does/not/exist/on/this/node.jks",
+                "keystoreSecret" to "secret",
+            )
+
+        pluginService.deployPluginConfigurations(
+            PluginAutoDeploymentDto(
+                id,
+                "Autodeployed ${UUID.randomUUID()}",
+                objectMapper.valueToTree(properties),
+                PLUGIN_KEY,
+            ),
+        )
+
+        assertTrue(pluginConfigurationRepository.existsById(PluginConfigurationId.existingId(id)))
+    }
+
+    @Test
+    fun `should switch the client certificate from keystore to PEM, ignoring the keystore secret that stays stored`() {
+        val configuration =
+            createConfiguration(
+                "Keystore ${UUID.randomUUID()}",
+                mapOf(
+                    "authenticationType" to "NONE",
+                    "keystorePath" to TlsFixtures.clientKeystore("PKCS12", temporaryDirectory).toString(),
+                    "keystoreSecret" to TlsFixtures.KEYSTORE_SECRET,
+                ),
+                PLUGIN_KEY,
+            )
+
+        // What the screen sends: the PEM fields, the keystore path emptied and its secret left empty
+        pluginService.updatePluginConfiguration(
+            configuration.id,
+            configuration.title,
+            objectMapper.valueToTree(mtlsProperties() + mapOf("keystorePath" to "", "keystoreSecret" to "")),
+        )
+
+        val plugin = pluginService.createInstance(configuration.id) as HttpClientAuthenticationPluginBase
+        assertEquals(TlsFixtures.KEYSTORE_SECRET, plugin.keystoreSecret)
+        plugin.validateConfiguration()
+        MtlsTestServer().use { server ->
+            RestClient
+                .builder()
+                .apply {
+                    plugin.applyAuth(
+                        it,
+                    )
+                }.build()
+                .get()
+                .uri(server.baseUrl)
+                .retrieve()
+                .toBodilessEntity()
+            assertEquals(TlsFixtures.CLIENT_SUBJECT, server.receivedClientCertificateSubject)
+        }
     }
 
     private fun assertCausedBy(

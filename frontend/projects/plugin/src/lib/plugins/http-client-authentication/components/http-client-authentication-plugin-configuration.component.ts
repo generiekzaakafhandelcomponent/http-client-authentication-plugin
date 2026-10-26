@@ -22,6 +22,11 @@ import {
     HttpClientAuthenticationPluginConfig
 } from "../models/http-client-authentication-plugin-config";
 
+type TlsSource = 'PEM' | 'KEYSTORE';
+
+const PEM_FIELDS = ['clientCertificate', 'clientPrivateKey', 'serverCertificate'] as const;
+const KEYSTORE_FIELDS = ['keystorePath', 'keystoreSecret', 'truststorePath', 'truststoreSecret'] as const;
+
 @Component({
     standalone: false,
     // eslint-disable-next-line @angular-eslint/component-selector
@@ -46,6 +51,7 @@ export class HttpClientAuthenticationPluginConfigurationComponent
     readonly headerRadio = {value: 'HEADER', title: 'Header'};
     readonly tokenRadio = {value: 'TOKEN', title: 'Token'};
     readonly zgwJwtRadio = {value: 'ZGW_JWT', title: 'Client ID / secret (ZGW JWT)'};
+    readonly tokenExchangeRadio = {value: 'TOKEN_EXCHANGE', title: 'Token exchange'};
     readonly noneRadio = {value: 'NONE', title: 'None'};
 
     readonly authenticationTypeOptions = [
@@ -53,18 +59,24 @@ export class HttpClientAuthenticationPluginConfigurationComponent
         this.headerRadio,
         this.tokenRadio,
         this.zgwJwtRadio,
+        this.tokenExchangeRadio,
         this.noneRadio,
     ];
+
+    readonly pemRadio = {value: 'PEM', title: 'PEM'};
+    readonly keystoreRadio = {value: 'KEYSTORE', title: 'Keystore (JKS / PKCS12)'};
+    readonly tlsSourceOptions = [this.pemRadio, this.keystoreRadio];
 
     private saveSubscription!: Subscription;
 
     private readonly formValue$ = new BehaviorSubject<HttpClientAuthenticationPluginConfig | null>(null);
     private readonly valid$ = new BehaviorSubject<boolean>(false);
 
-    // The private key is a secret and never sent back, so an unchanged certificate keeps its stored key
+    // Secrets are never sent back, so an unchanged field that owns a secret keeps its stored secret:
+    // the client certificate its private key, the keystore paths their secrets, the authentication type its secret
     private prefilledClientCertificate = '';
-
-    // Secrets are never sent back either, so an unchanged authentication type keeps its stored secret
+    private prefilledKeystorePath = '';
+    private prefilledTruststorePath = '';
     private prefilledAuthenticationType = '';
 
     selectedAuthType$ = new BehaviorSubject(this.bearerRadio)
@@ -72,11 +84,18 @@ export class HttpClientAuthenticationPluginConfigurationComponent
     // Frontend-only switch: the certificate fields are shown, validated and saved only while it is on
     readonly tlsEnabled$ = new BehaviorSubject<boolean>(false);
 
+    // Frontend-only choice: only the fields of the chosen source are shown, validated and saved
+    readonly tlsSource$ = new BehaviorSubject<TlsSource>('PEM');
+
     ngOnInit(): void {
         this.prefillConfiguration$.pipe(map(config => {
             this.prefilledClientCertificate = config?.clientCertificate?.trim() ?? '';
+            this.prefilledKeystorePath = config?.keystorePath?.trim() ?? '';
+            this.prefilledTruststorePath = config?.truststorePath?.trim() ?? '';
             this.prefilledAuthenticationType = config?.authenticationType ?? '';
-            this.tlsEnabled$.next(!!(this.prefilledClientCertificate || config?.serverCertificate?.trim()));
+            const keystore = !!(this.prefilledKeystorePath || this.prefilledTruststorePath);
+            this.tlsEnabled$.next(keystore || !!(this.prefilledClientCertificate || config?.serverCertificate?.trim()));
+            this.tlsSource$.next(keystore ? 'KEYSTORE' : 'PEM');
             this.selectAuthType(config?.authenticationType);
         })).subscribe();
         this.openSaveSubscription();
@@ -97,6 +116,17 @@ export class HttpClientAuthenticationPluginConfigurationComponent
 
     tlsEnabledChange(tlsEnabled: boolean): void {
         this.tlsEnabled$.next(tlsEnabled);
+        this.revalidate();
+    }
+
+    tlsSourceChange(tlsSource: string): void {
+        if (tlsSource === 'PEM' || tlsSource === 'KEYSTORE') {
+            this.tlsSource$.next(tlsSource);
+            this.revalidate();
+        }
+    }
+
+    private revalidate(): void {
         const formValue = this.formValue$.getValue();
         if (formValue) {
             this.handleValid(formValue);
@@ -120,7 +150,8 @@ export class HttpClientAuthenticationPluginConfigurationComponent
     }
 
     private authenticationValid(formValue: HttpClientAuthenticationPluginConfig): boolean {
-        const secretValid = !!formValue.authSecret || formValue.authenticationType === this.prefilledAuthenticationType;
+        const typeUnchanged = formValue.authenticationType === this.prefilledAuthenticationType;
+        const secretValid = !!formValue.authSecret || typeUnchanged;
         switch (formValue.authenticationType) {
             case this.bearerRadio.value:
             case this.tokenRadio.value:
@@ -129,6 +160,9 @@ export class HttpClientAuthenticationPluginConfigurationComponent
                 return !!formValue.authHeaderName && secretValid;
             case this.zgwJwtRadio.value:
                 return !!formValue.clientId && secretValid && (!formValue.authSecret || formValue.authSecret.length >= 32);
+            case this.tokenExchangeRadio.value:
+                return !!formValue.tokenEndpoint && !!formValue.clientId && !!formValue.audience
+                    && (!!formValue.clientSecret || typeUnchanged);
             case this.noneRadio.value:
                 return true;
             default:
@@ -137,6 +171,10 @@ export class HttpClientAuthenticationPluginConfigurationComponent
     }
 
     private certificatesValid(formValue: HttpClientAuthenticationPluginConfig): boolean {
+        if (this.tlsSource$.getValue() === 'KEYSTORE') {
+            return this.storeValid(formValue.keystorePath, formValue.keystoreSecret, this.prefilledKeystorePath)
+                && this.storeValid(formValue.truststorePath, formValue.truststoreSecret, this.prefilledTruststorePath);
+        }
         const clientCertificate = formValue.clientCertificate?.trim() ?? '';
         const clientPrivateKey = formValue.clientPrivateKey?.trim() ?? '';
         if (!clientCertificate) {
@@ -145,12 +183,20 @@ export class HttpClientAuthenticationPluginConfigurationComponent
         return !!clientPrivateKey || clientCertificate === this.prefilledClientCertificate;
     }
 
-    private withoutDisabledFields(formValue: HttpClientAuthenticationPluginConfig): HttpClientAuthenticationPluginConfig {
-        if (this.tlsEnabled$.getValue()) {
-            return formValue;
-        }
-        const {clientCertificate, clientPrivateKey, serverCertificate, ...withoutTlsFields} = formValue;
-        return withoutTlsFields;
+    private storeValid(path: string | undefined, secret: string | undefined, prefilledPath: string): boolean {
+        const trimmedPath = path?.trim() ?? '';
+        return !trimmedPath || !!secret || trimmedPath === prefilledPath;
+    }
+
+    // Leaving a field out of the saved configuration clears it; a stored secret stays, but is ignored without its field
+    private withoutInactiveFields(formValue: HttpClientAuthenticationPluginConfig): HttpClientAuthenticationPluginConfig {
+        const {tlsSource, ...configuration} = formValue as HttpClientAuthenticationPluginConfig & {tlsSource?: string};
+        const inactiveFields: readonly string[] = !this.tlsEnabled$.getValue()
+            ? [...PEM_FIELDS, ...KEYSTORE_FIELDS]
+            : this.tlsSource$.getValue() === 'KEYSTORE' ? PEM_FIELDS : KEYSTORE_FIELDS;
+        return Object.fromEntries(
+            Object.entries(configuration).filter(([field]) => !inactiveFields.includes(field))
+        ) as HttpClientAuthenticationPluginConfig;
     }
 
     private openSaveSubscription(): void {
@@ -163,7 +209,7 @@ export class HttpClientAuthenticationPluginConfigurationComponent
                 .pipe(take(1))
                 .subscribe(([formValue, valid]) => {
                     if (valid) {
-                        this.configuration.emit(this.withoutDisabledFields(formValue));
+                        this.configuration.emit(this.withoutInactiveFields(formValue));
                     }
                 });
         });

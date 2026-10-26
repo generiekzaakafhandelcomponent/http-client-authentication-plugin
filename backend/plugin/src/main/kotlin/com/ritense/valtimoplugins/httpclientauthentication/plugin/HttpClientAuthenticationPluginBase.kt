@@ -24,6 +24,8 @@ import com.ritense.valtimoplugins.httpclientauthentication.HttpClientAuthenticat
 import com.ritense.valtimoplugins.httpclientauthentication.model.AuthenticationType
 import com.ritense.valtimoplugins.httpclientauthentication.tls.TlsMaterial
 import com.ritense.valtimoplugins.httpclientauthentication.tls.TlsRequestFactoryCache
+import com.ritense.valtimoplugins.httpclientauthentication.tokenexchange.TokenExchangeConfig
+import com.ritense.valtimoplugins.httpclientauthentication.tokenexchange.TokenExchangeTokenCache
 import com.ritense.valtimoplugins.httpclientauthentication.zgw.ZgwJwt
 import org.springframework.http.HttpHeaders
 import org.springframework.web.client.RestClient
@@ -32,6 +34,7 @@ import org.springframework.web.reactive.function.client.ClientResponse
 import org.springframework.web.reactive.function.client.ExchangeFilterFunction
 import org.springframework.web.reactive.function.client.ExchangeFunction
 import reactor.core.publisher.Mono
+import java.net.URI
 
 /**
  * All logic of the plugin. The `@Plugin` classes are generated variants of this class, one per combination of ZGW
@@ -41,79 +44,161 @@ import reactor.core.publisher.Mono
 abstract class HttpClientAuthenticationPluginBase(
     val configurationId: PluginConfigurationId,
     private val tlsRequestFactoryCache: TlsRequestFactoryCache,
+    private val tokenExchangeTokenCache: TokenExchangeTokenCache,
 ) : HttpClientAuthenticator,
     ExchangeFilterFunction {
     abstract var authenticationType: AuthenticationType
+
+    // BEARER, HEADER, TOKEN, ZGW_JWT
     abstract var authHeaderName: String?
     abstract var authSecret: String?
+
+    // ZGW_JWT, TOKEN_EXCHANGE
     abstract var clientId: String?
+
+    // TOKEN_EXCHANGE
+    abstract var clientSecret: String?
+    abstract var tokenEndpoint: URI?
+    abstract var audience: String?
+    abstract var scope: String?
+
+    // Certificates, for every type: PEM or keystore files
     abstract var clientCertificate: String?
     abstract var clientPrivateKey: String?
     abstract var serverCertificate: String?
+    abstract var keystorePath: String?
+    abstract var keystoreSecret: String?
+    abstract var truststorePath: String?
+    abstract var truststoreSecret: String?
 
+    /**
+     * Checks the configuration when it's saved or autodeployed. Reads no files and calls no servers, so a configuration
+     * is judged the same on every node; a keystore that can't be read fails on first use.
+     */
     @PluginEvent(invokedOn = [EventType.CREATE, EventType.UPDATE])
     fun validateConfiguration() {
-        setAuthHeaders(HttpHeaders())
-        tlsMaterial().takeIf { it.isConfigured }?.toSslBundle()
+        val problems = authenticationProblems() + tlsMaterial().problems()
+        require(problems.isEmpty()) { problems.joinToString("; ") }
     }
 
+    /**
+     * The credentials are set per request by a request initializer: a long-lived client never sends an expired token,
+     * and, unlike an interceptor, it isn't lost behind the interceptors Valtimo adds (such as its docker filter).
+     */
     override fun applyAuth(builder: RestClient.Builder): RestClient.Builder {
+        requireAuthentication()
         val tlsMaterial = tlsMaterial()
         if (tlsMaterial.isConfigured) {
             builder.requestFactory(tlsRequestFactoryCache.requestFactory(tlsMaterial))
         }
-        return builder.defaultHeaders { headers -> setAuthHeaders(headers) }
+        if (authenticationType != AuthenticationType.NONE) {
+            builder.requestInitializer { request -> setAuthHeaders(request.headers, tlsMaterial) }
+        }
+        return builder
     }
 
+    /**
+     * Sets the same headers on WebClient requests. A WebClient keeps its own connector, so certificates don't apply.
+     */
     override fun filter(
         request: ClientRequest,
         next: ExchangeFunction,
     ): Mono<ClientResponse> {
+        requireAuthentication()
+        val tlsMaterial = tlsMaterial()
         val filteredRequest =
             ClientRequest
                 .from(request)
-                .headers { headers ->
-                    setAuthHeaders(headers)
-                }.build()
+                .headers { headers -> setAuthHeaders(headers, tlsMaterial) }
+                .build()
         return next.exchange(filteredRequest)
     }
 
-    private fun setAuthHeaders(headers: HttpHeaders) {
+    private fun setAuthHeaders(
+        headers: HttpHeaders,
+        tlsMaterial: TlsMaterial,
+    ) {
         when (authenticationType) {
-            AuthenticationType.BEARER -> {
-                headers.setBearerAuth(required(authSecret, "authSecret"))
-            }
-
-            AuthenticationType.HEADER -> {
-                headers.set(required(authHeaderName, "authHeaderName"), required(authSecret, "authSecret"))
-            }
-
-            AuthenticationType.TOKEN -> {
-                headers.set(HttpHeaders.AUTHORIZATION, "Token ${required(authSecret, "authSecret")}")
-            }
-
-            AuthenticationType.ZGW_JWT -> {
-                val secret = required(authSecret, "authSecret")
-                require(secret.length >= ZgwJwt.MINIMUM_SECRET_LENGTH) {
-                    "Property 'authSecret' must be at least ${ZgwJwt.MINIMUM_SECRET_LENGTH} characters " +
-                        "for authentication type $authenticationType"
-                }
-                headers.setBearerAuth(ZgwJwt.generate(required(clientId, "clientId"), secret))
-            }
-
+            AuthenticationType.BEARER -> headers.setBearerAuth(required(authSecret))
+            AuthenticationType.HEADER -> headers.set(required(authHeaderName), required(authSecret))
+            AuthenticationType.TOKEN -> headers.set(HttpHeaders.AUTHORIZATION, "Token ${required(authSecret)}")
+            AuthenticationType.ZGW_JWT ->
+                headers.setBearerAuth(
+                    ZgwJwt.generate(required(clientId), required(authSecret)),
+                )
+            AuthenticationType.TOKEN_EXCHANGE -> headers.setBearerAuth(exchangedToken(tlsMaterial))
             AuthenticationType.NONE -> Unit
         }
     }
 
-    private fun required(
-        value: String?,
-        property: String,
-    ): String =
-        requireNotNull(value?.takeIf { it.isNotBlank() }) {
-            "Property '$property' is required for authentication type $authenticationType"
+    private fun exchangedToken(tlsMaterial: TlsMaterial): String {
+        val config =
+            TokenExchangeConfig(
+                tokenEndpoint = requireNotNull(tokenEndpoint),
+                clientId = required(clientId),
+                clientSecret = required(clientSecret),
+                audience = required(audience),
+                scope = scope?.takeIf { it.isNotBlank() },
+            )
+        // The token endpoint gets the client certificate too
+        return if (tlsMaterial.isConfigured) {
+            tokenExchangeTokenCache.accessToken(config, tlsMaterial.digest) {
+                tlsRequestFactoryCache.tokenEndpointRequestFactory(tlsMaterial)
+            }
+        } else {
+            tokenExchangeTokenCache.accessToken(config, "") { null }
+        }
+    }
+
+    private fun requireAuthentication() {
+        authenticationProblems().firstOrNull()?.let { throw IllegalArgumentException(it) }
+    }
+
+    private fun authenticationProblems(): List<String> {
+        val missing =
+            requiredProperties()
+                .filter { (_, value) -> value.isNullOrBlank() }
+                .map { (property, _) -> property }
+        if (missing.isNotEmpty()) {
+            return listOf("Authentication type $authenticationType requires the properties: ${missing.joinToString()}")
+        }
+        if (authenticationType == AuthenticationType.ZGW_JWT && authSecret!!.length < ZgwJwt.MINIMUM_SECRET_LENGTH) {
+            return listOf(
+                "Property 'authSecret' must be at least ${ZgwJwt.MINIMUM_SECRET_LENGTH} characters " +
+                    "for authentication type $authenticationType",
+            )
+        }
+        return emptyList()
+    }
+
+    private fun requiredProperties(): List<Pair<String, String?>> =
+        when (authenticationType) {
+            AuthenticationType.NONE -> emptyList()
+            AuthenticationType.BEARER, AuthenticationType.TOKEN -> listOf("authSecret" to authSecret)
+            AuthenticationType.HEADER -> listOf("authHeaderName" to authHeaderName, "authSecret" to authSecret)
+            AuthenticationType.ZGW_JWT -> listOf("clientId" to clientId, "authSecret" to authSecret)
+            AuthenticationType.TOKEN_EXCHANGE ->
+                listOf(
+                    "tokenEndpoint" to tokenEndpoint?.toString(),
+                    "clientId" to clientId,
+                    "clientSecret" to clientSecret,
+                    "audience" to audience,
+                )
         }
 
-    private fun tlsMaterial() = TlsMaterial(clientCertificate, clientPrivateKey, serverCertificate)
+    // Checked by authenticationProblems before the header is set
+    private fun required(value: String?): String = requireNotNull(value?.takeIf { it.isNotBlank() })
+
+    private fun tlsMaterial() =
+        TlsMaterial(
+            clientCertificate = clientCertificate,
+            clientPrivateKey = clientPrivateKey,
+            serverCertificate = serverCertificate,
+            keystorePath = keystorePath,
+            keystoreSecret = keystoreSecret,
+            truststorePath = truststorePath,
+            truststoreSecret = truststoreSecret,
+        )
 
     companion object {
         const val PLUGIN_KEY = "http-client-authentication-plugin"

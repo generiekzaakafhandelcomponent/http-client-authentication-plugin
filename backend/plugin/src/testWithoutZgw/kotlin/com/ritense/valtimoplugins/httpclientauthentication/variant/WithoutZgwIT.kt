@@ -65,7 +65,7 @@ internal class WithoutZgwIT : BaseIntegrationTest() {
             definition.fullyQualifiedClassName,
         )
         assertEquals(setOf("http-client-authentication"), definition.categories.map { it.key }.toSet())
-        assertEquals(7, definition.properties.size)
+        assertEquals(15, definition.properties.size)
     }
 
     @Test

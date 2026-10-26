@@ -141,6 +141,8 @@ val generatePluginVariants by tasks.registering {
                 |import com.ritense.valtimoplugins.httpclientauthentication.model.AuthenticationType
                 |import com.ritense.valtimoplugins.httpclientauthentication.plugin.HttpClientAuthenticationPluginBase
                 |import com.ritense.valtimoplugins.httpclientauthentication.tls.TlsRequestFactoryCache
+                |import com.ritense.valtimoplugins.httpclientauthentication.tokenexchange.TokenExchangeTokenCache
+                |import java.net.URI
                 |
                 |@Plugin(
                 |    key = HttpClientAuthenticationPluginBase.PLUGIN_KEY,
@@ -150,7 +152,8 @@ val generatePluginVariants by tasks.registering {
                 |class $className(
                 |    configurationId: PluginConfigurationId,
                 |    tlsRequestFactoryCache: TlsRequestFactoryCache,
-                |) : HttpClientAuthenticationPluginBase(configurationId, tlsRequestFactoryCache)$zgwSupertypes {
+                |    tokenExchangeTokenCache: TokenExchangeTokenCache,
+                |) : HttpClientAuthenticationPluginBase(configurationId, tlsRequestFactoryCache, tokenExchangeTokenCache)$zgwSupertypes {
                 |    @PluginProperty(key = "authenticationType", secret = false, required = true)
                 |    override lateinit var authenticationType: AuthenticationType
                 |
@@ -163,6 +166,18 @@ val generatePluginVariants by tasks.registering {
                 |    @PluginProperty(key = "clientId", secret = false, required = false)
                 |    override var clientId: String? = null
                 |
+                |    @PluginProperty(key = "clientSecret", secret = true, required = false)
+                |    override var clientSecret: String? = null
+                |
+                |    @PluginProperty(key = "tokenEndpoint", secret = false, required = false)
+                |    override var tokenEndpoint: URI? = null
+                |
+                |    @PluginProperty(key = "audience", secret = false, required = false)
+                |    override var audience: String? = null
+                |
+                |    @PluginProperty(key = "scope", secret = false, required = false)
+                |    override var scope: String? = null
+                |
                 |    @PluginProperty(key = "clientCertificate", secret = false, required = false)
                 |    override var clientCertificate: String? = null
                 |
@@ -171,6 +186,18 @@ val generatePluginVariants by tasks.registering {
                 |
                 |    @PluginProperty(key = "serverCertificate", secret = false, required = false)
                 |    override var serverCertificate: String? = null
+                |
+                |    @PluginProperty(key = "keystorePath", secret = false, required = false)
+                |    override var keystorePath: String? = null
+                |
+                |    @PluginProperty(key = "keystoreSecret", secret = true, required = false)
+                |    override var keystoreSecret: String? = null
+                |
+                |    @PluginProperty(key = "truststorePath", secret = false, required = false)
+                |    override var truststorePath: String? = null
+                |
+                |    @PluginProperty(key = "truststoreSecret", secret = true, required = false)
+                |    override var truststoreSecret: String? = null
                 |}
                 |
                 """.trimMargin(),
@@ -198,7 +225,10 @@ fun zgwCombinationTest(
             compileClasspath += sourceSets.main.get().output + sourceSets.test.get().output
             runtimeClasspath += sourceSets.main.get().output + sourceSets.test.get().output
         }
-    configurations.named(sourceSet.implementationConfigurationName) { extendsFrom(integrationTestCommon) }
+    // The test source set gets the main dependencies through testImplementation, these source sets don't
+    configurations.named(sourceSet.implementationConfigurationName) {
+        extendsFrom(integrationTestCommon, configurations.implementation.get())
+    }
     dependencies {
         zgwModules.forEach { add(sourceSet.implementationConfigurationName, "com.ritense.valtimo:$it") }
     }
@@ -227,5 +257,8 @@ dockerCompose {
         useComposeFiles.addAll("$rootDir/docker-resources/docker-compose-base-test.yml", "docker-compose-override.yml")
     }
 }
+
+// The database is started once for all test tasks, so it may only stop after the last
+tasks.named("composeDown") { mustRunAfter(tasks.test, testWithoutZgw, testWithObjectenApi) }
 
 apply(from = "gradle/publishing.gradle")

@@ -21,57 +21,197 @@ import org.springframework.boot.ssl.SslBundle
 import org.springframework.boot.ssl.pem.PemContent
 import org.springframework.boot.ssl.pem.PemSslStore
 import org.springframework.boot.ssl.pem.PemSslStoreBundle
+import java.io.IOException
+import java.nio.file.Files
+import java.nio.file.Path
+import java.security.KeyStore
 import java.security.MessageDigest
 import java.security.PrivateKey
 import java.security.Signature
+import java.security.UnrecoverableKeyException
 import java.security.cert.X509Certificate
 import java.security.interfaces.RSAPrivateKey
 import java.security.interfaces.RSAPublicKey
 import java.util.HexFormat
+import javax.net.ssl.KeyManager
+import javax.net.ssl.KeyManagerFactory
+import javax.net.ssl.SSLContext
+import javax.net.ssl.TrustManager
+import javax.net.ssl.TrustManagerFactory
+import javax.net.ssl.X509ExtendedTrustManager
 
+/**
+ * The certificates of a configuration, either as PEM text or as keystore files. As PEM: the client certificate in
+ * `clientCertificate` and `clientPrivateKey`, the trusted server certificates in `serverCertificate`. As files: the client
+ * certificate in `keystorePath` and `keystoreSecret`, the trusted server certificates in `truststorePath` and
+ * `truststoreSecret`.
+ *
+ * The non-secret property of a source switches it on. Valtimo keeps a stored secret when an update leaves it empty, so a
+ * secret whose source is off is ignored.
+ */
 class TlsMaterial(
-    clientCertificate: String?,
-    clientPrivateKey: String?,
-    serverCertificate: String?,
+    clientCertificate: String? = null,
+    clientPrivateKey: String? = null,
+    serverCertificate: String? = null,
+    keystorePath: String? = null,
+    keystoreSecret: String? = null,
+    truststorePath: String? = null,
+    truststoreSecret: String? = null,
 ) {
-    private val clientCertificate = clientCertificate?.takeIf { it.isNotBlank() }
-
-    // The client certificate switches mTLS on: a stored key without certificate is ignored
-    private val clientPrivateKey = clientPrivateKey?.takeIf { it.isNotBlank() && this.clientCertificate != null }
-    private val serverCertificate = serverCertificate?.takeIf { it.isNotBlank() }
+    private val clientCertificate = clientCertificate.orNullIfBlank()
+    private val clientPrivateKey = clientPrivateKey.orNullIfBlank()?.takeIf { this.clientCertificate != null }
+    private val serverCertificate = serverCertificate.orNullIfBlank()
+    private val keystorePath = keystorePath.orNullIfBlank()
+    private val keystoreSecret = keystoreSecret.orNullIfBlank()?.takeIf { this.keystorePath != null }
+    private val truststorePath = truststorePath.orNullIfBlank()
+    private val truststoreSecret = truststoreSecret.orNullIfBlank()?.takeIf { this.truststorePath != null }
 
     val isConfigured: Boolean
-        get() = clientCertificate != null || serverCertificate != null
+        get() = clientCertificate != null || keystorePath != null || serverCertificate != null || truststorePath != null
 
-    val digest: String by lazy {
-        val sha256 = MessageDigest.getInstance("SHA-256")
-        listOf(clientCertificate, clientPrivateKey, serverCertificate).forEach {
-            sha256.update((it ?: "").toByteArray())
-            sha256.update(0)
+    /**
+     * Identifies the material: changes when a property changes, and when a keystore file is replaced.
+     */
+    val digest: String
+        get() {
+            val sha256 = MessageDigest.getInstance("SHA-256")
+            listOf(
+                clientCertificate,
+                clientPrivateKey,
+                serverCertificate,
+                keystorePath,
+                keystoreSecret,
+                fileVersion(keystorePath),
+                truststorePath,
+                truststoreSecret,
+                fileVersion(truststorePath),
+            ).forEach {
+                sha256.update((it ?: "").toByteArray())
+                sha256.update(0)
+            }
+            return HexFormat.of().formatHex(sha256.digest())
         }
-        HexFormat.of().formatHex(sha256.digest())
+
+    /**
+     * The problems that can be found without reading files, so a configuration is judged the same on every node.
+     */
+    fun problems(): List<String> =
+        buildList {
+            // One source for all certificates: the screen offers one choice, and saving it drops the other source
+            if ((clientCertificate != null || serverCertificate != null) &&
+                (keystorePath != null || truststorePath != null)
+            ) {
+                add(
+                    "Configure the certificates either as PEM ($CLIENT_CERTIFICATE, $SERVER_CERTIFICATE) or as " +
+                        "keystore files ($KEYSTORE_PATH, $TRUSTSTORE_PATH), not both",
+                )
+            }
+            if (keystorePath != null && keystoreSecret == null) {
+                add("$KEYSTORE_SECRET is required when $KEYSTORE_PATH is configured")
+            }
+            if (truststorePath != null && truststoreSecret == null) {
+                add("$TRUSTSTORE_SECRET is required when $TRUSTSTORE_PATH is configured")
+            }
+            problemOf { pemKeyStore() }?.let(::add)
+            problemOf { pemTrustStore() }?.let(::add)
+        }
+
+    /**
+     * The SSL context for the API calls: the configured server certificates replace the certificates the JVM trusts.
+     */
+    fun sslContext(): SSLContext {
+        requireValid()
+        return sslContext(trustManagers())
     }
 
-    fun toSslBundle(): SslBundle {
-        val keyStore =
-            clientCertificate?.let { certificateText ->
-                val keyText =
-                    clientPrivateKey
-                        ?: throw IllegalArgumentException(
-                            "Property 'clientPrivateKey' is required when 'clientCertificate' is set",
-                        )
-                val certificates = readCertificates(certificateText, CLIENT_CERTIFICATE)
-                val privateKey = readPrivateKey(keyText)
-                require(keyMatchesCertificate(privateKey, certificates.first())) {
-                    "Property 'clientPrivateKey' does not belong to the certificate in 'clientCertificate'"
-                }
-                PemSslStore.of(certificates, privateKey)
+    /**
+     * The SSL context for calls that should also reach servers the JVM trusts, such as the token endpoint: the
+     * configured server certificates are trusted next to [defaultTrustManager].
+     */
+    fun sslContextAlsoTrusting(defaultTrustManager: X509ExtendedTrustManager): SSLContext {
+        requireValid()
+        val configured = trustManagers()?.filterIsInstance<X509ExtendedTrustManager>()?.firstOrNull()
+        val trustManager = configured?.let { EitherTrustManager(it, defaultTrustManager) } ?: defaultTrustManager
+        return sslContext(arrayOf(trustManager))
+    }
+
+    private fun requireValid() {
+        problems().firstOrNull()?.let { throw IllegalArgumentException(it) }
+    }
+
+    private fun sslContext(trustManagers: Array<TrustManager>?): SSLContext =
+        SSLContext.getInstance("TLS").apply { init(keyManagers(), trustManagers, null) }
+
+    private fun keyManagers(): Array<KeyManager>? {
+        pemKeyStore()?.let { return SslBundle.of(PemSslStoreBundle(it, null)).managers.keyManagers }
+        val keyStore = fileKeyStore() ?: return null
+        return KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm()).run {
+            try {
+                init(keyStore, requireNotNull(keystoreSecret).toCharArray())
+            } catch (e: UnrecoverableKeyException) {
+                throw IllegalArgumentException("Property '$KEYSTORE_SECRET' does not open the key in '$KEYSTORE_PATH'")
             }
-        val trustStore =
-            serverCertificate?.let {
-                PemSslStore.of(readCertificates(it, SERVER_CERTIFICATE), null)
+            keyManagers
+        }
+    }
+
+    private fun trustManagers(): Array<TrustManager>? {
+        pemTrustStore()?.let { return SslBundle.of(PemSslStoreBundle(null, it)).managers.trustManagers }
+        val trustStore = fileTrustStore() ?: return null
+        return TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm()).run {
+            init(trustStore)
+            trustManagers
+        }
+    }
+
+    private fun pemKeyStore(): PemSslStore? =
+        clientCertificate?.let { certificateText ->
+            val keyText =
+                clientPrivateKey
+                    ?: throw IllegalArgumentException(
+                        "Property '$CLIENT_PRIVATE_KEY' is required when '$CLIENT_CERTIFICATE' is set",
+                    )
+            val certificates = readCertificates(certificateText, CLIENT_CERTIFICATE)
+            val privateKey = readPrivateKey(keyText)
+            require(keyMatchesCertificate(privateKey, certificates.first())) {
+                "Property '$CLIENT_PRIVATE_KEY' does not belong to the certificate in '$CLIENT_CERTIFICATE'"
             }
-        return SslBundle.of(PemSslStoreBundle(keyStore, trustStore))
+            PemSslStore.of(certificates, privateKey)
+        }
+
+    private fun pemTrustStore(): PemSslStore? =
+        serverCertificate?.let { PemSslStore.of(readCertificates(it, SERVER_CERTIFICATE), null) }
+
+    private fun fileKeyStore(): KeyStore? =
+        keystorePath?.let {
+            loadKeyStore(it, keystoreSecret, KEYSTORE_PATH, KEYSTORE_SECRET)
+        }
+
+    private fun fileTrustStore(): KeyStore? =
+        truststorePath?.let { loadKeyStore(it, truststoreSecret, TRUSTSTORE_PATH, TRUSTSTORE_SECRET) }
+
+    // The JKS keystore type reads PKCS12 files too
+    private fun loadKeyStore(
+        path: String,
+        secret: String?,
+        pathProperty: String,
+        secretProperty: String,
+    ): KeyStore {
+        val keyStore = KeyStore.getInstance("JKS")
+        try {
+            Files.newInputStream(Path.of(path)).use { keyStore.load(it, requireNotNull(secret).toCharArray()) }
+        } catch (e: IOException) {
+            if (e.cause is UnrecoverableKeyException) {
+                throw IllegalArgumentException(
+                    "Property '$secretProperty' does not open the keystore in '$pathProperty'",
+                )
+            }
+            throw IllegalArgumentException(
+                "Property '$pathProperty' does not point to a readable keystore (${e.javaClass.simpleName})",
+                e,
+            )
+        }
+        return keyStore
     }
 
     private fun readCertificates(
@@ -97,7 +237,7 @@ class TlsMaterial(
             }
         return requireNotNull(
             privateKey,
-        ) { "Property 'clientPrivateKey' does not contain a valid unencrypted PEM private key" }
+        ) { "Property '$CLIENT_PRIVATE_KEY' does not contain a valid unencrypted PEM private key" }
     }
 
     private fun keyMatchesCertificate(
@@ -127,8 +267,42 @@ class TlsMaterial(
         }
     }
 
+    private fun problemOf(check: () -> Unit): String? =
+        try {
+            check()
+            null
+        } catch (e: IllegalArgumentException) {
+            e.message
+        }
+
+    // Size and modification time, so a replaced file gets a new digest without reading it
+    private fun fileVersion(path: String?): String? =
+        path?.let {
+            try {
+                val file = Path.of(it)
+                "${Files.size(file)}:${Files.getLastModifiedTime(file).toMillis()}"
+            } catch (e: Exception) {
+                "unreadable"
+            }
+        }
+
+    private fun String?.orNullIfBlank() = this?.takeIf { it.isNotBlank() }
+
     companion object {
         private const val CLIENT_CERTIFICATE = "clientCertificate"
+        private const val CLIENT_PRIVATE_KEY = "clientPrivateKey"
         private const val SERVER_CERTIFICATE = "serverCertificate"
+        private const val KEYSTORE_PATH = "keystorePath"
+        private const val KEYSTORE_SECRET = "keystoreSecret"
+        private const val TRUSTSTORE_PATH = "truststorePath"
+        private const val TRUSTSTORE_SECRET = "truststoreSecret"
+
+        fun jvmDefaultTrustManager(): X509ExtendedTrustManager =
+            TrustManagerFactory
+                .getInstance(TrustManagerFactory.getDefaultAlgorithm())
+                .apply { init(null as KeyStore?) }
+                .trustManagers
+                .filterIsInstance<X509ExtendedTrustManager>()
+                .first()
     }
 }

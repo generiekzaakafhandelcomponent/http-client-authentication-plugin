@@ -28,6 +28,12 @@ describe('HttpClientAuthenticationPluginConfigurationComponent', () => {
     const renewedCertificate = '-----BEGIN CERTIFICATE-----\nMIIC\n-----END CERTIFICATE-----';
     const privateKey = '-----BEGIN PRIVATE KEY-----\nMIIE\n-----END PRIVATE KEY-----';
     const clientSecret = 'a-client-secret-of-at-least-32-characters';
+    const tokenExchange = {
+        tokenEndpoint: 'https://keycloak.example.com/realms/example/protocol/openid-connect/token',
+        clientId: 'valtimo',
+        clientSecret: 'client-secret',
+        audience: 'haal-centraal',
+    };
 
     let component: HttpClientAuthenticationPluginConfigurationComponent;
     let save$: Subject<void>;
@@ -56,7 +62,7 @@ describe('HttpClientAuthenticationPluginConfigurationComponent', () => {
 
     it('offers every authentication type', () => {
         expect(component.authenticationTypeOptions.map(option => option.value))
-            .toEqual(['BEARER', 'HEADER', 'TOKEN', 'ZGW_JWT', 'NONE']);
+            .toEqual(['BEARER', 'HEADER', 'TOKEN', 'ZGW_JWT', 'TOKEN_EXCHANGE', 'NONE']);
     });
 
     it('requires the fields of the chosen authentication type', () => {
@@ -70,7 +76,83 @@ describe('HttpClientAuthenticationPluginConfigurationComponent', () => {
         expect(isValid({authenticationType: 'ZGW_JWT', clientId: 'valtimo_client', authSecret: 'secret'})).toBeFalse();
         expect(isValid({authenticationType: 'ZGW_JWT', authSecret: clientSecret})).toBeFalse();
         expect(isValid({authenticationType: 'ZGW_JWT', clientId: 'valtimo_client'})).toBeFalse();
+        expect(isValid({authenticationType: 'TOKEN_EXCHANGE', ...tokenExchange})).toBeTrue();
+        expect(isValid({authenticationType: 'TOKEN_EXCHANGE', ...tokenExchange, scope: 'openid'})).toBeTrue();
+        for (const field of ['tokenEndpoint', 'clientId', 'clientSecret', 'audience'] as const) {
+            expect(isValid({authenticationType: 'TOKEN_EXCHANGE', ...tokenExchange, [field]: ''})).withContext(field).toBeFalse();
+        }
         expect(isValid({authenticationType: 'NONE'})).toBeTrue();
+    });
+
+    it('keeps the stored token exchange client secret while the type is unchanged', () => {
+        create({authenticationType: 'TOKEN_EXCHANGE', tokenEndpoint: tokenExchange.tokenEndpoint});
+
+        expect(isValid({authenticationType: 'TOKEN_EXCHANGE', ...tokenExchange, clientSecret: ''})).toBeTrue();
+    });
+
+    it('requires the secret of a new keystore or truststore path', () => {
+        component.tlsEnabledChange(true);
+        component.tlsSourceChange('KEYSTORE');
+
+        expect(isValid({authenticationType: 'NONE', keystorePath: '/certs/client.p12', keystoreSecret: 'secret'})).toBeTrue();
+        expect(isValid({authenticationType: 'NONE', keystorePath: '/certs/client.p12'})).toBeFalse();
+        expect(isValid({authenticationType: 'NONE', truststorePath: '/certs/trust.p12', truststoreSecret: 'secret'})).toBeTrue();
+        expect(isValid({authenticationType: 'NONE', truststorePath: '/certs/trust.p12'})).toBeFalse();
+    });
+
+    it('keeps the stored keystore secrets while their paths are unchanged', () => {
+        create({authenticationType: 'NONE', keystorePath: '/certs/client.p12', truststorePath: '/certs/trust.p12'});
+
+        expect(isValid({authenticationType: 'NONE', keystorePath: '/certs/client.p12', truststorePath: '/certs/trust.p12'}))
+            .toBeTrue();
+        expect(isValid({authenticationType: 'NONE', keystorePath: '/certs/renewed.p12', truststorePath: '/certs/trust.p12'}))
+            .toBeFalse();
+    });
+
+    it('picks the certificate source from the stored configuration', () => {
+        create({authenticationType: 'NONE', clientCertificate: certificate});
+        expect(component.tlsSource$.value).toBe('PEM');
+
+        create({authenticationType: 'NONE', truststorePath: '/certs/trust.p12'});
+        expect(component.tlsEnabled$.value).toBeTrue();
+        expect(component.tlsSource$.value).toBe('KEYSTORE');
+    });
+
+    it('saves only the fields of the chosen certificate source, without the choice itself', () => {
+        const emitted: HttpClientAuthenticationPluginConfig[] = [];
+        component.configuration.subscribe(configuration => emitted.push(configuration));
+        component.tlsEnabledChange(true);
+        component.tlsSourceChange('KEYSTORE');
+        const formValue = {
+            authenticationType: 'NONE',
+            tlsSource: 'KEYSTORE',
+            clientCertificate: certificate,
+            clientPrivateKey: privateKey,
+            serverCertificate: certificate,
+            keystorePath: '/certs/client.p12',
+            keystoreSecret: 'secret',
+        };
+
+        isValid(formValue as Partial<HttpClientAuthenticationPluginConfig>);
+        save$.next();
+        component.tlsSourceChange('PEM');
+        save$.next();
+
+        expect(emitted).toEqual([
+            {
+                configurationTitle: 'Den Bosch gateway',
+                authenticationType: 'NONE',
+                keystorePath: '/certs/client.p12',
+                keystoreSecret: 'secret',
+            } as HttpClientAuthenticationPluginConfig,
+            {
+                configurationTitle: 'Den Bosch gateway',
+                authenticationType: 'NONE',
+                clientCertificate: certificate,
+                clientPrivateKey: privateKey,
+                serverCertificate: certificate,
+            } as HttpClientAuthenticationPluginConfig,
+        ]);
     });
 
     it('keeps the stored secret while the prefilled authentication type is unchanged', () => {
@@ -225,6 +307,8 @@ describe('HttpClientAuthenticationPluginConfigurationComponent screen', () => {
         expect(inputNames(fixture)).toEqual(['configurationTitle', 'authSecret']);
         select(fixture, 'ZGW_JWT');
         expect(inputNames(fixture)).toEqual(['configurationTitle', 'clientId', 'authSecret']);
+        select(fixture, 'TOKEN_EXCHANGE');
+        expect(inputNames(fixture)).toEqual(['configurationTitle', 'tokenEndpoint', 'clientId', 'clientSecret', 'audience', 'scope']);
         select(fixture, 'NONE');
         expect(inputNames(fixture)).toEqual(['configurationTitle']);
     });
@@ -237,6 +321,19 @@ describe('HttpClientAuthenticationPluginConfigurationComponent screen', () => {
         expect(inputNames(fixture)).toEqual(['configurationTitle', 'authSecret', 'clientCertificate', 'clientPrivateKey', 'serverCertificate']);
         clickTlsToggle(fixture);
         expect(inputNames(fixture)).toEqual(['configurationTitle', 'authSecret']);
+    });
+
+    it('shows the keystore fields when the certificates come from a keystore', () => {
+        const fixture = render('en');
+        select(fixture, 'NONE');
+        clickTlsToggle(fixture);
+
+        fixture.componentInstance.tlsSourceChange('KEYSTORE');
+        fixture.detectChanges();
+
+        expect(inputNames(fixture)).toEqual(['configurationTitle', 'keystorePath', 'keystoreSecret', 'truststorePath', 'truststoreSecret']);
+        expect(Array.from(fixture.nativeElement.querySelectorAll('v-radio')).map((element: Element) => element.getAttribute('name')))
+            .toEqual(['authenticationType', 'tlsSource']);
     });
 
     it('shows the certificate fields as multi-line text', () => {
@@ -295,7 +392,22 @@ describe('HttpClientAuthenticationPluginConfigurationComponent screen', () => {
 
             const text = fixture.nativeElement.textContent as string;
 
-            for (const key of ['clientId', 'clientSecret', 'tlsEnabled', 'tlsEnabled.toggleOn', 'clientCertificate', 'clientPrivateKey', 'serverCertificate']) {
+            for (const key of ['clientId', 'clientSecret', 'tlsEnabled', 'tlsEnabled.toggleOn', 'tlsSource', 'clientCertificate', 'clientPrivateKey', 'serverCertificate']) {
+                expect(translations[language][key]).toBeTruthy();
+                expect(text).toContain(translations[language][key]);
+            }
+        });
+
+        it(`labels the token exchange and keystore fields in ${language}`, () => {
+            const fixture = render(language);
+            select(fixture, 'TOKEN_EXCHANGE');
+            clickTlsToggle(fixture);
+            fixture.componentInstance.tlsSourceChange('KEYSTORE');
+            fixture.detectChanges();
+
+            const text = fixture.nativeElement.textContent as string;
+
+            for (const key of ['tokenEndpoint', 'clientSecret', 'audience', 'scope', 'keystorePath', 'keystoreSecret', 'truststorePath', 'truststoreSecret']) {
                 expect(translations[language][key]).toBeTruthy();
                 expect(text).toContain(translations[language][key]);
             }

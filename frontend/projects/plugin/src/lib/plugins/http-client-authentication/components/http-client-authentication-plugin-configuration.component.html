@@ -26,7 +26,8 @@
             *ngIf="{
         disabled: disabled$ | async,
         prefill: prefillConfiguration$ ? (prefillConfiguration$ | async) : null,
-        tlsEnabled: tlsEnabled$ | async
+        tlsEnabled: tlsEnabled$ | async,
+        tlsSource: tlsSource$ | async
     } as obs"
     >
         <v-input
@@ -62,7 +63,7 @@
             >
             </v-input>
         </ng-container>
-        <ng-container *ngIf="(selectedAuthType$|async).value == 'HEADER'">
+        <ng-container *ngIf="(selectedAuthType$|async).value === 'HEADER'">
             <v-input
                     name="authHeaderName"
                     [title]="'authHeaderName' | pluginTranslate: pluginId | async"
@@ -113,6 +114,66 @@
             >
             </v-input>
         </ng-container>
+        <ng-container *ngIf="(selectedAuthType$|async).value === 'TOKEN_EXCHANGE'">
+            <v-input
+                    name="tokenEndpoint"
+                    [title]="'tokenEndpoint' | pluginTranslate: pluginId | async"
+                    [placeholder]="'tokenEndpointPlaceholder' | pluginTranslate: pluginId | async"
+                    [tooltip]="'tokenEndpointTooltip' | pluginTranslate: pluginId | async"
+                    [margin]="true"
+                    [fullWidth]="true"
+                    [defaultValue]="obs.prefill?.tokenEndpoint"
+                    [disabled]="obs.disabled"
+                    [required]="true"
+            >
+            </v-input>
+            <v-input
+                    name="clientId"
+                    [title]="'clientId' | pluginTranslate: pluginId | async"
+                    [placeholder]="'clientIdPlaceholder' | pluginTranslate: pluginId | async"
+                    [margin]="true"
+                    [fullWidth]="true"
+                    [defaultValue]="obs.prefill?.clientId"
+                    [disabled]="obs.disabled"
+                    [required]="true"
+            >
+            </v-input>
+            <v-input
+                    name="clientSecret"
+                    type="password"
+                    [title]="'clientSecret' | pluginTranslate: pluginId | async"
+                    [vInputPlaceholder]="'tokenExchangeClientSecretPlaceholder' | pluginTranslate: pluginId | async"
+                    [margin]="true"
+                    [fullWidth]="true"
+                    [disabled]="obs.disabled"
+                    [required]="!obs.prefill"
+            >
+            </v-input>
+            <v-input
+                    name="audience"
+                    [title]="'audience' | pluginTranslate: pluginId | async"
+                    [placeholder]="'audiencePlaceholder' | pluginTranslate: pluginId | async"
+                    [tooltip]="'audienceTooltip' | pluginTranslate: pluginId | async"
+                    [margin]="true"
+                    [fullWidth]="true"
+                    [defaultValue]="obs.prefill?.audience"
+                    [disabled]="obs.disabled"
+                    [required]="true"
+            >
+            </v-input>
+            <v-input
+                    name="scope"
+                    [title]="'scope' | pluginTranslate: pluginId | async"
+                    [placeholder]="'scopePlaceholder' | pluginTranslate: pluginId | async"
+                    [tooltip]="'scopeTooltip' | pluginTranslate: pluginId | async"
+                    [margin]="true"
+                    [fullWidth]="true"
+                    [defaultValue]="obs.prefill?.scope"
+                    [disabled]="obs.disabled"
+                    [required]="false"
+            >
+            </v-input>
+        </ng-container>
         <div class="tls-toggle">
             <v-input-label
                     [title]="'tlsEnabled' | pluginTranslate: pluginId | async"
@@ -129,6 +190,17 @@
             </cds-toggle>
         </div>
         <ng-container *ngIf="obs.tlsEnabled">
+            <v-radio
+                    name="tlsSource"
+                    [title]="'tlsSource' | pluginTranslate: pluginId | async"
+                    [radioValues]="tlsSourceOptions"
+                    [defaultValue]="obs.tlsSource"
+                    [margin]="true"
+                    (valueChange)="tlsSourceChange($event)"
+            >
+            </v-radio>
+        </ng-container>
+        <ng-container *ngIf="obs.tlsEnabled && obs.tlsSource === 'PEM'">
             <v-input
                     name="clientCertificate"
                     type="textarea"
@@ -166,6 +238,55 @@
                     [margin]="true"
                     [fullWidth]="true"
                     [defaultValue]="obs.prefill?.serverCertificate"
+                    [disabled]="obs.disabled"
+                    [required]="false"
+            >
+            </v-input>
+        </ng-container>
+        <ng-container *ngIf="obs.tlsEnabled && obs.tlsSource === 'KEYSTORE'">
+            <v-input
+                    name="keystorePath"
+                    [title]="'keystorePath' | pluginTranslate: pluginId | async"
+                    [placeholder]="'keystorePathPlaceholder' | pluginTranslate: pluginId | async"
+                    [tooltip]="'keystorePathTooltip' | pluginTranslate: pluginId | async"
+                    [margin]="true"
+                    [fullWidth]="true"
+                    [defaultValue]="obs.prefill?.keystorePath"
+                    [disabled]="obs.disabled"
+                    [required]="false"
+            >
+            </v-input>
+            <v-input
+                    name="keystoreSecret"
+                    type="password"
+                    [title]="'keystoreSecret' | pluginTranslate: pluginId | async"
+                    [vInputPlaceholder]="'keystoreSecretPlaceholder' | pluginTranslate: pluginId | async"
+                    [tooltip]="'keystoreSecretTooltip' | pluginTranslate: pluginId | async"
+                    [margin]="true"
+                    [fullWidth]="true"
+                    [disabled]="obs.disabled"
+                    [required]="false"
+            >
+            </v-input>
+            <v-input
+                    name="truststorePath"
+                    [title]="'truststorePath' | pluginTranslate: pluginId | async"
+                    [placeholder]="'truststorePathPlaceholder' | pluginTranslate: pluginId | async"
+                    [tooltip]="'truststorePathTooltip' | pluginTranslate: pluginId | async"
+                    [margin]="true"
+                    [fullWidth]="true"
+                    [defaultValue]="obs.prefill?.truststorePath"
+                    [disabled]="obs.disabled"
+                    [required]="false"
+            >
+            </v-input>
+            <v-input
+                    name="truststoreSecret"
+                    type="password"
+                    [title]="'truststoreSecret' | pluginTranslate: pluginId | async"
+                    [vInputPlaceholder]="'truststoreSecretPlaceholder' | pluginTranslate: pluginId | async"
+                    [margin]="true"
+                    [fullWidth]="true"
                     [disabled]="obs.disabled"
                     [required]="false"
             >

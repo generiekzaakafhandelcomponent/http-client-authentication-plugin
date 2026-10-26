@@ -23,13 +23,17 @@ import com.ritense.valtimo.contract.client.ValtimoHttpRestClientConfigurationPro
 import com.ritense.valtimoplugins.httpclientauthentication.HttpClientAuthenticator
 import com.ritense.valtimoplugins.httpclientauthentication.plugin.HttpClientAuthenticationPluginBase
 import com.ritense.valtimoplugins.httpclientauthentication.tls.TlsRequestFactoryCache
+import com.ritense.valtimoplugins.httpclientauthentication.tokenexchange.TokenExchangeTokenCache
 import org.junit.jupiter.api.Test
+import org.mockito.kotlin.mock
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 internal class GeneratedPluginVariantsTest {
     private val variants =
-        (0 until 256).map { PluginVariant(Integer.toBinaryString(it).padStart(8, '0')) }
+        (0 until (1 shl ZGW_AUTHENTICATION_INTERFACES.size)).map {
+            PluginVariant(Integer.toBinaryString(it).padStart(ZGW_AUTHENTICATION_INTERFACES.size, '0'))
+        }
 
     @Test
     fun `should generate a plugin class with the same key for every combination of ZGW interfaces`() {
@@ -75,9 +79,17 @@ internal class GeneratedPluginVariantsTest {
                     "authHeaderName" to (false to false),
                     "authSecret" to (false to true),
                     "clientId" to (false to false),
+                    "clientSecret" to (false to true),
+                    "tokenEndpoint" to (false to false),
+                    "audience" to (false to false),
+                    "scope" to (false to false),
                     "clientCertificate" to (false to false),
                     "clientPrivateKey" to (false to true),
                     "serverCertificate" to (false to false),
+                    "keystorePath" to (false to false),
+                    "keystoreSecret" to (false to true),
+                    "truststorePath" to (false to false),
+                    "truststoreSecret" to (false to true),
                 ),
                 properties.mapValues { (_, property) -> property.required to property.secret },
                 variant.className,
@@ -89,14 +101,18 @@ internal class GeneratedPluginVariantsTest {
     @Test
     fun `should create every variant with the constructor the factory uses`() {
         val cache = TlsRequestFactoryCache(ValtimoHttpRestClientConfigurationProperties())
+        val tokenCache = TokenExchangeTokenCache(mock())
         val configurationId = PluginConfigurationId.newId()
 
         variants.forEach { variant ->
             val plugin =
                 Class
                     .forName(variant.className)
-                    .getConstructor(PluginConfigurationId::class.java, TlsRequestFactoryCache::class.java)
-                    .newInstance(configurationId, cache) as HttpClientAuthenticationPluginBase
+                    .getConstructor(
+                        PluginConfigurationId::class.java,
+                        TlsRequestFactoryCache::class.java,
+                        TokenExchangeTokenCache::class.java,
+                    ).newInstance(configurationId, cache, tokenCache) as HttpClientAuthenticationPluginBase
 
             assertEquals(configurationId, plugin.configurationId)
         }
