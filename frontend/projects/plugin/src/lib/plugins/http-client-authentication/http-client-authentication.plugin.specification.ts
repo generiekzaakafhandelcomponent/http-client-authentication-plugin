@@ -50,11 +50,9 @@ const httpClientAuthenticationPluginSpecification: PluginSpecification = {
             authHeaderName: 'Authenticatie header naam',
             authHeaderNamePlaceholder: 'X-Api-Key',
             authSecret: 'Authenticatie secret',
-            authSecretPlaceholder: '0000000000000000000000000000000000000000',
             clientId: 'Client ID',
             clientIdPlaceholder: 'valtimo_client',
             clientSecret: 'Client secret',
-            clientSecretPlaceholder: '00000000-0000-0000-0000-000000000000',
             clientSecretTooltip: 'Minimaal 32 tekens. Wordt gebruikt om het ZGW JWT-token te ondertekenen.',
             tokenEndpoint: 'Token endpoint URL',
             tokenEndpointPlaceholder: 'https://keycloak.example.com/realms/example/protocol/openid-connect/token',
@@ -72,7 +70,6 @@ const httpClientAuthenticationPluginSpecification: PluginSpecification = {
             keystorePathTooltip:
                 'Optioneel. Een JKS- of PKCS12-bestand met het clientcertificaat en de private key, op elke server van GZAC op hetzelfde pad.',
             keystoreSecret: 'Keystore wachtwoord',
-            keystoreSecretPlaceholder: 'Wachtwoord',
             keystoreSecretTooltip:
                 'Verplicht bij een keystore. Wordt na opslaan niet meer getoond; leeg laten behoudt het opgeslagen wachtwoord zolang het pad gelijk blijft.',
             truststorePath: 'Truststore pad',
@@ -80,7 +77,6 @@ const httpClientAuthenticationPluginSpecification: PluginSpecification = {
             truststorePathTooltip:
                 'Optioneel. Een JKS- of PKCS12-bestand met de CA- of servercertificaten die vertrouwd worden in plaats van de standaardlijst van de JVM.',
             truststoreSecret: 'Truststore wachtwoord',
-            truststoreSecretPlaceholder: 'Wachtwoord',
             tlsEnabled: 'Certificaten (mutual TLS)',
             tlsEnabledTooltip:
                 'Schakel in om een clientcertificaat (mutual TLS) te gebruiken of een specifiek servercertificaat te vertrouwen, als PEM-tekst of als keystore-bestand. Bij token exchange gebruikt ook het token endpoint het clientcertificaat. Uitschakelen verwijdert de certificaten bij opslaan.',
@@ -89,15 +85,14 @@ const httpClientAuthenticationPluginSpecification: PluginSpecification = {
             clientCertificate: 'Clientcertificaat (PEM)',
             clientCertificateTooltip:
                 'Optioneel. Het certificaat waarmee GZAC zich bij mutual TLS identificeert. Leeg laten schakelt mutual TLS uit.',
-            clientCertificatePlaceholder: '-----BEGIN CERTIFICATE-----\nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n...\n-----END CERTIFICATE-----',
+            clientCertificatePlaceholder: '-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----',
             clientPrivateKey: 'Private key van het clientcertificaat (PEM)',
             clientPrivateKeyTooltip:
                 'Verplicht bij een nieuw clientcertificaat. Mag niet versleuteld zijn. Wordt na opslaan niet meer getoond; leeg laten behoudt de opgeslagen sleutel.',
-            clientPrivateKeyPlaceholder: '-----BEGIN PRIVATE KEY-----\nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n...\n-----END PRIVATE KEY-----',
-            serverCertificate: 'Servercertificaat (PEM)',
+            serverCertificate: 'Servercertificaat (PEM, optioneel)',
             serverCertificateTooltip:
                 'Optioneel. Het CA- of servercertificaat dat vertrouwd wordt in plaats van de standaardlijst van de JVM.',
-            serverCertificatePlaceholder: '-----BEGIN CERTIFICATE-----\nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n...\n-----END CERTIFICATE-----'
+            serverCertificatePlaceholder: '-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----'
         },
         en: {
             configurationTitle: 'Configuration name',
@@ -110,11 +105,9 @@ const httpClientAuthenticationPluginSpecification: PluginSpecification = {
             authHeaderName: 'Authentication header name',
             authHeaderNamePlaceholder: 'X-Api-Key',
             authSecret: 'Authentication secret',
-            authSecretPlaceholder: '0000000000000000000000000000000000000000',
             clientId: 'Client ID',
             clientIdPlaceholder: 'valtimo_client',
             clientSecret: 'Client secret',
-            clientSecretPlaceholder: '00000000-0000-0000-0000-000000000000',
             clientSecretTooltip: 'At least 32 characters. Used to sign the ZGW JWT token.',
             tokenEndpoint: 'Token endpoint URL',
             tokenEndpointPlaceholder: 'https://keycloak.example.com/realms/example/protocol/openid-connect/token',
@@ -132,7 +125,6 @@ const httpClientAuthenticationPluginSpecification: PluginSpecification = {
             keystorePathTooltip:
                 'Optional. A JKS or PKCS12 file with the client certificate and private key, at the same path on every GZAC server.',
             keystoreSecret: 'Keystore password',
-            keystoreSecretPlaceholder: 'Password',
             keystoreSecretTooltip:
                 'Required with a keystore. Not shown again after saving; leave empty to keep the stored password while the path stays the same.',
             truststorePath: 'Truststore path',
@@ -140,7 +132,6 @@ const httpClientAuthenticationPluginSpecification: PluginSpecification = {
             truststorePathTooltip:
                 'Optional. A JKS or PKCS12 file with the CA or server certificates to trust instead of the JVM default list.',
             truststoreSecret: 'Truststore password',
-            truststoreSecretPlaceholder: 'Password',
             tlsEnabled: 'Certificates (mutual TLS)',
             tlsEnabledTooltip:
                 'Turn on to present a client certificate (mutual TLS) or to trust a specific server certificate, as PEM text or as keystore file. With token exchange the token endpoint gets the client certificate too. Turning it off removes the certificates on save.',
@@ -149,15 +140,14 @@ const httpClientAuthenticationPluginSpecification: PluginSpecification = {
             clientCertificate: 'Client certificate (PEM)',
             clientCertificateTooltip:
                 'Optional. The certificate GZAC presents for mutual TLS. Leave empty to turn mutual TLS off.',
-            clientCertificatePlaceholder: '-----BEGIN CERTIFICATE-----\nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n...\n-----END CERTIFICATE-----',
+            clientCertificatePlaceholder: '-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----',
             clientPrivateKey: 'Client certificate private key (PEM)',
             clientPrivateKeyTooltip:
                 'Required with a new client certificate. Must not be encrypted. Not shown again after saving; leave empty to keep the stored key.',
-            clientPrivateKeyPlaceholder: '-----BEGIN PRIVATE KEY-----\nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n...\n-----END PRIVATE KEY-----',
-            serverCertificate: 'Server certificate (PEM)',
+            serverCertificate: 'Server certificate (PEM, optional)',
             serverCertificateTooltip:
                 'Optional. The CA or server certificate to trust instead of the JVM default list.',
-            serverCertificatePlaceholder: '-----BEGIN CERTIFICATE-----\nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n...\n-----END CERTIFICATE-----'
+            serverCertificatePlaceholder: '-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----'
         },
         de: {
             configurationTitle: 'Konfigurationsname',
@@ -170,11 +160,9 @@ const httpClientAuthenticationPluginSpecification: PluginSpecification = {
             authHeaderName: 'Name des Authentifizierungs-Headers',
             authHeaderNamePlaceholder: 'X-Api-Key',
             authSecret: 'Authentifizierungs-Secret',
-            authSecretPlaceholder: '0000000000000000000000000000000000000000',
             clientId: 'Client-ID',
             clientIdPlaceholder: 'valtimo_client',
             clientSecret: 'Client-Secret',
-            clientSecretPlaceholder: '00000000-0000-0000-0000-000000000000',
             clientSecretTooltip: 'Mindestens 32 Zeichen. Wird zum Signieren des ZGW-JWT-Tokens verwendet.',
             tokenEndpoint: 'Token-Endpoint-URL',
             tokenEndpointPlaceholder: 'https://keycloak.example.com/realms/example/protocol/openid-connect/token',
@@ -192,7 +180,6 @@ const httpClientAuthenticationPluginSpecification: PluginSpecification = {
             keystorePathTooltip:
                 'Optional. Eine JKS- oder PKCS12-Datei mit Client-Zertifikat und Private Key, auf jedem GZAC-Server unter demselben Pfad.',
             keystoreSecret: 'Keystore-Passwort',
-            keystoreSecretPlaceholder: 'Passwort',
             keystoreSecretTooltip:
                 'Pflicht bei einem Keystore. Wird nach dem Speichern nicht mehr angezeigt; leer lassen behält das gespeicherte Passwort, solange der Pfad gleich bleibt.',
             truststorePath: 'Truststore-Pfad',
@@ -200,7 +187,6 @@ const httpClientAuthenticationPluginSpecification: PluginSpecification = {
             truststorePathTooltip:
                 'Optional. Eine JKS- oder PKCS12-Datei mit den CA- oder Serverzertifikaten, denen statt der Standardliste der JVM vertraut wird.',
             truststoreSecret: 'Truststore-Passwort',
-            truststoreSecretPlaceholder: 'Passwort',
             tlsEnabled: 'Zertifikate (Mutual TLS)',
             tlsEnabledTooltip:
                 'Einschalten, um ein Client-Zertifikat (Mutual TLS) zu verwenden oder einem bestimmten Serverzertifikat zu vertrauen, als PEM-Text oder als Keystore-Datei. Bei Token Exchange nutzt auch der Token-Endpoint das Client-Zertifikat. Ausschalten entfernt die Zertifikate beim Speichern.',
@@ -209,15 +195,14 @@ const httpClientAuthenticationPluginSpecification: PluginSpecification = {
             clientCertificate: 'Client-Zertifikat (PEM)',
             clientCertificateTooltip:
                 'Optional. Das Zertifikat, mit dem sich GZAC bei Mutual TLS ausweist. Leer lassen schaltet Mutual TLS aus.',
-            clientCertificatePlaceholder: '-----BEGIN CERTIFICATE-----\nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n...\n-----END CERTIFICATE-----',
+            clientCertificatePlaceholder: '-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----',
             clientPrivateKey: 'Private Key des Client-Zertifikats (PEM)',
             clientPrivateKeyTooltip:
                 'Pflicht bei einem neuen Client-Zertifikat. Darf nicht verschlüsselt sein. Wird nach dem Speichern nicht mehr angezeigt; leer lassen behält den gespeicherten Schlüssel.',
-            clientPrivateKeyPlaceholder: '-----BEGIN PRIVATE KEY-----\nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n...\n-----END PRIVATE KEY-----',
-            serverCertificate: 'Serverzertifikat (PEM)',
+            serverCertificate: 'Serverzertifikat (PEM, optional)',
             serverCertificateTooltip:
                 'Optional. Das CA- oder Serverzertifikat, dem statt der Standardliste der JVM vertraut wird.',
-            serverCertificatePlaceholder: '-----BEGIN CERTIFICATE-----\nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n...\n-----END CERTIFICATE-----'
+            serverCertificatePlaceholder: '-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----'
         }
     }
 };
