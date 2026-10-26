@@ -68,6 +68,7 @@ export class HttpClientAuthenticationPluginConfigurationComponent
     readonly tlsSourceOptions = [this.pemRadio, this.keystoreRadio];
 
     private saveSubscription!: Subscription;
+    private prefillSubscription!: Subscription;
 
     private readonly formValue$ = new BehaviorSubject<HttpClientAuthenticationPluginConfig | null>(null);
     private readonly valid$ = new BehaviorSubject<boolean>(false);
@@ -88,7 +89,7 @@ export class HttpClientAuthenticationPluginConfigurationComponent
     readonly tlsSource$ = new BehaviorSubject<TlsSource>('PEM');
 
     ngOnInit(): void {
-        this.prefillConfiguration$.pipe(map(config => {
+        this.prefillSubscription = this.prefillConfiguration$.pipe(map(config => {
             this.prefilledClientCertificate = config?.clientCertificate?.trim() ?? '';
             this.prefilledKeystorePath = config?.keystorePath?.trim() ?? '';
             this.prefilledTruststorePath = config?.truststorePath?.trim() ?? '';
@@ -103,6 +104,7 @@ export class HttpClientAuthenticationPluginConfigurationComponent
 
     ngOnDestroy() {
         this.saveSubscription?.unsubscribe();
+        this.prefillSubscription?.unsubscribe();
     }
 
     formValueChange(formValue: any): void {

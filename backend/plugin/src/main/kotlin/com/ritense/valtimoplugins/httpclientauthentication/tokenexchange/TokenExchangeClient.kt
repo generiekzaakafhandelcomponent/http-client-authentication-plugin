@@ -43,6 +43,7 @@ class TokenExchangeClient(
     /**
      * @param requestFactory replaces the application's request factory, e.g. to present a client certificate
      */
+    @JvmOverloads
     fun exchangeToken(
         config: TokenExchangeConfig,
         requestFactory: ClientHttpRequestFactory? = null,

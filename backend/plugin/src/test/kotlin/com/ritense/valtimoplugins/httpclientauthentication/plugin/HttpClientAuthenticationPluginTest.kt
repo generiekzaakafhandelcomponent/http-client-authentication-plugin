@@ -826,6 +826,66 @@ internal class HttpClientAuthenticationPluginTest {
         }
     }
 
+    @Test
+    fun `should not limit concurrent mutual TLS calls of one configuration to a few connections`() {
+        val cache = TlsRequestFactoryCache(ValtimoHttpRestClientConfigurationProperties(connectionRequestTimeout = 1))
+        val executor = Executors.newFixedThreadPool(8)
+        MtlsTestServer(responseDelayMillis = 2000).use { server ->
+            try {
+                val calls =
+                    (1..8).map {
+                        executor.submit<String?> {
+                            // A new plugin instance per call, as Valtimo creates them
+                            call(
+                                plugin(AuthenticationType.NONE, cache) {
+                                    clientCertificate = TlsFixtures.CLIENT_CERTIFICATE
+                                    clientPrivateKey = TlsFixtures.CLIENT_PRIVATE_KEY
+                                    serverCertificate = TlsFixtures.CA_CERTIFICATE
+                                },
+                                server.baseUrl,
+                            )
+                        }
+                    }
+
+                assertEquals(List(8) { "{}" }, calls.map { it.get(30, TimeUnit.SECONDS) })
+            } finally {
+                executor.shutdownNow()
+            }
+        }
+    }
+
+    @Test
+    fun `should refuse a private key in a certificate property, which isn't stored encrypted`() {
+        assertTlsError(
+            plugin(AuthenticationType.NONE) {
+                clientCertificate = TlsFixtures.CLIENT_CERTIFICATE + "\n" + TlsFixtures.CLIENT_PRIVATE_KEY
+                clientPrivateKey = TlsFixtures.CLIENT_PRIVATE_KEY
+            },
+            "Property 'clientCertificate' must not contain a private key",
+        )
+        assertTlsError(
+            plugin(AuthenticationType.NONE) {
+                serverCertificate = TlsFixtures.CA_CERTIFICATE + "\n" + TlsFixtures.SERVER_PRIVATE_KEY
+            },
+            "Property 'serverCertificate' must not contain a private key",
+        )
+    }
+
+    @Test
+    fun `should keep the request factory when only a secret without its property changes`() {
+        val cache = TlsRequestFactoryCache(restClientProperties)
+        val plugin = { leftOverSecret: String ->
+            plugin(AuthenticationType.NONE, cache) {
+                serverCertificate = TlsFixtures.CA_CERTIFICATE
+                clientPrivateKey = leftOverSecret
+                keystoreSecret = leftOverSecret
+                truststoreSecret = leftOverSecret
+            }
+        }
+
+        assertSame(requestFactoryOf(plugin("left-over")), requestFactoryOf(plugin("changed")))
+    }
+
     private fun tokenExchangePlugin(
         tokenCache: TokenExchangeTokenCache,
         cache: TlsRequestFactoryCache = TlsRequestFactoryCache(restClientProperties),

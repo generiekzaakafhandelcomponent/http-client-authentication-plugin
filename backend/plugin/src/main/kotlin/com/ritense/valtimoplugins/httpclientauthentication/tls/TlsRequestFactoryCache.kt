@@ -51,6 +51,9 @@ class TlsRequestFactoryCache(
             PoolingHttpClientConnectionManagerBuilder
                 .create()
                 .setTlsSocketStrategy(DefaultClientTlsStrategy(sslContext))
+                // One pool serves every client of the configuration, so Apache's default of 5 is too few
+                .setMaxConnPerRoute(MAX_CONNECTIONS_PER_ROUTE)
+                .setMaxConnTotal(MAX_CONNECTIONS)
                 .build()
         val httpClient =
             HttpClients
@@ -68,5 +71,10 @@ class TlsRequestFactoryCache(
                 setReadTimeout(Duration.ofSeconds(restClientProperties.readTimeout))
             }
         return BufferingClientHttpRequestFactory(requestFactory)
+    }
+
+    companion object {
+        const val MAX_CONNECTIONS_PER_ROUTE = 50
+        const val MAX_CONNECTIONS = 200
     }
 }

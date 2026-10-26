@@ -26,6 +26,7 @@ import org.springframework.boot.ssl.pem.PemSslStoreDetails
 import java.net.InetSocketAddress
 import java.security.cert.X509Certificate
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.Executors
 
 // An HTTPS server on a free port that demands a client certificate signed by the test CA, like Den Bosch's gateway.
 // Answers with the body in [responses] for "<method> <path>", or with [responseBody] when there is none.
@@ -82,6 +83,8 @@ class MtlsTestServer(
             exchange.sendResponseHeaders(200, body.size.toLong())
             exchange.responseBody.use { it.write(body) }
         }
+        // Concurrent requests are handled concurrently
+        server.executor = Executors.newCachedThreadPool()
         server.start()
     }
 

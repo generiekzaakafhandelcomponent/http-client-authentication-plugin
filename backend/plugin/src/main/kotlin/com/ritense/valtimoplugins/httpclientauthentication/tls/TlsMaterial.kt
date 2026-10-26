@@ -225,6 +225,8 @@ class TlsMaterial(
                 null
             }
         require(!certificates.isNullOrEmpty()) { "Property '$property' does not contain a valid PEM certificate" }
+        // The property isn't secret, so a key in it would be stored unencrypted
+        require(!text.contains("PRIVATE KEY-----")) { "Property '$property' must not contain a private key" }
         return certificates
     }
 
