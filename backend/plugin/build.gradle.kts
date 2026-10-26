@@ -244,18 +244,15 @@ fun zgwCombinationTest(
 val testWithoutZgw = zgwCombinationTest("testWithoutZgw", emptyList())
 val testWithObjectenApi = zgwCombinationTest("testWithObjectenApi", listOf("objecten-api", "objecttypen-api"))
 
+val integrationTestTasks = listOf(tasks.test, testWithoutZgw, testWithObjectenApi)
+
 dockerCompose {
     setProjectName("http-client-authentication")
-    isRequiredBy(project.tasks.test)
-    isRequiredBy(testWithoutZgw)
-    isRequiredBy(testWithObjectenApi)
-
-    tasks.test {
-        useComposeFiles.addAll("$rootDir/docker-resources/docker-compose-base-test.yml", "docker-compose-override.yml")
-    }
+    useComposeFiles.addAll("$rootDir/docker-resources/docker-compose-base-test.yml", "docker-compose-override.yml")
+    integrationTestTasks.forEach { isRequiredBy(it) }
 }
 
 // The database is started once for all test tasks, so it may only stop after the last
-tasks.named("composeDown") { mustRunAfter(tasks.test, testWithoutZgw, testWithObjectenApi) }
+tasks.named("composeDown") { mustRunAfter(integrationTestTasks) }
 
 apply(from = "gradle/publishing.gradle")

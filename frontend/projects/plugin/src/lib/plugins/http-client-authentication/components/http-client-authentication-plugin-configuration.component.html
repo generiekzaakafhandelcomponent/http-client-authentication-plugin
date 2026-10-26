@@ -15,14 +15,8 @@
   ~
   -->
 
-<ng-container *ngIf="{
-    disabled: disabled$ | async,
-    prefill: prefillConfiguration$ ? (prefillConfiguration$ | async) : null,
-    selectedAuthType: selectedAuthType$ | async,
-  } as obs"
->
-    <!-- Valtimo reuses this component for the next configuration: a new form, so nothing typed carries over -->
-    <ng-container *ngFor="let formVersion of [formVersion$ | async]">
+<!-- Valtimo reuses this component for the next configuration: a new form, so nothing typed carries over -->
+<ng-container *ngFor="let formVersion of [formVersion$ | async]">
     <v-form
             (valueChange)="formValueChange($event)"
             *ngIf="{
@@ -52,20 +46,6 @@
                 (valueChange)="radioValueChange($event)"
         >
         </v-radio>
-        <ng-container *ngIf="['BEARER', 'TOKEN'].includes((selectedAuthType$|async).value)">
-            <v-input
-                    name="authSecret"
-                    type="password"
-                    [title]="'authSecret' | pluginTranslate: pluginId | async"
-                    [vInputPlaceholder]="'authSecretPlaceholder' | pluginTranslate: pluginId | async"
-                    [margin]="true"
-                    [fullWidth]="true"
-                    [defaultValue]="obs.prefill?.authSecret"
-                    [disabled]="obs.disabled"
-                    [required]="false"
-            >
-            </v-input>
-        </ng-container>
         <ng-container *ngIf="(selectedAuthType$|async).value === 'HEADER'">
             <v-input
                     name="authHeaderName"
@@ -78,6 +58,8 @@
                     [required]="false"
             >
             </v-input>
+        </ng-container>
+        <ng-container *ngIf="['BEARER', 'HEADER', 'TOKEN'].includes((selectedAuthType$|async).value)">
             <v-input
                     name="authSecret"
                     type="password"
@@ -145,7 +127,7 @@
                     name="clientSecret"
                     type="password"
                     [title]="'clientSecret' | pluginTranslate: pluginId | async"
-                    [vInputPlaceholder]="'tokenExchangeClientSecretPlaceholder' | pluginTranslate: pluginId | async"
+                    [vInputPlaceholder]="'clientSecretPlaceholder' | pluginTranslate: pluginId | async"
                     [margin]="true"
                     [fullWidth]="true"
                     [disabled]="obs.disabled"
@@ -192,18 +174,17 @@
             >
             </cds-toggle>
         </div>
-        <ng-container *ngIf="obs.tlsEnabled">
-            <v-radio
-                    name="tlsSource"
-                    [title]="'tlsSource' | pluginTranslate: pluginId | async"
-                    [radioValues]="tlsSourceOptions"
-                    [defaultValue]="obs.tlsSource"
-                    [disabled]="obs.disabled"
-                    [margin]="true"
-                    (valueChange)="tlsSourceChange($event)"
-            >
-            </v-radio>
-        </ng-container>
+        <v-radio
+                *ngIf="obs.tlsEnabled"
+                name="tlsSource"
+                [title]="'tlsSource' | pluginTranslate: pluginId | async"
+                [radioValues]="tlsSourceOptions"
+                [defaultValue]="obs.tlsSource"
+                [disabled]="obs.disabled"
+                [margin]="true"
+                (valueChange)="tlsSourceChange($event)"
+        >
+        </v-radio>
         <ng-container *ngIf="obs.tlsEnabled && obs.tlsSource === 'PEM'">
             <v-input
                     name="clientCertificate"
@@ -297,5 +278,4 @@
             </v-input>
         </ng-container>
     </v-form>
-    </ng-container>
 </ng-container>

@@ -24,16 +24,21 @@ import org.apache.hc.client5.http.ssl.DefaultClientTlsStrategy
 import org.springframework.http.client.BufferingClientHttpRequestFactory
 import org.springframework.http.client.ClientHttpRequestFactory
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory
+import java.security.KeyStore
 import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
 import javax.net.ssl.SSLContext
+import javax.net.ssl.TrustManagerFactory
 import javax.net.ssl.X509ExtendedTrustManager
 
 // Plugin instances are rebuilt per use, so the connection pools live here instead
 class TlsRequestFactoryCache(
     private val restClientProperties: ValtimoHttpRestClientConfigurationProperties,
-    private val defaultTrustManager: X509ExtendedTrustManager = TlsMaterial.jvmDefaultTrustManager(),
+    defaultTrustManager: X509ExtendedTrustManager? = null,
 ) {
+    // Only loaded when a token endpoint needs it
+    private val defaultTrust by lazy { defaultTrustManager ?: jvmDefaultTrustManager() }
+
     private val requestFactories = ConcurrentHashMap<String, ClientHttpRequestFactory>()
 
     /** For the API calls: trusts only the configured server certificates, if any. */
@@ -43,7 +48,7 @@ class TlsRequestFactoryCache(
     /** For the token endpoint: also trusts the servers the JVM trusts. */
     fun tokenEndpointRequestFactory(tlsMaterial: TlsMaterial): ClientHttpRequestFactory =
         requestFactories.computeIfAbsent("token-endpoint:${tlsMaterial.digest}") {
-            createRequestFactory(tlsMaterial.sslContextAlsoTrusting(defaultTrustManager))
+            createRequestFactory(tlsMaterial.sslContextAlsoTrusting(defaultTrust))
         }
 
     private fun createRequestFactory(sslContext: SSLContext): ClientHttpRequestFactory {
@@ -71,6 +76,14 @@ class TlsRequestFactoryCache(
             }
         return BufferingClientHttpRequestFactory(requestFactory)
     }
+
+    private fun jvmDefaultTrustManager(): X509ExtendedTrustManager =
+        TrustManagerFactory
+            .getInstance(TrustManagerFactory.getDefaultAlgorithm())
+            .apply { init(null as KeyStore?) }
+            .trustManagers
+            .filterIsInstance<X509ExtendedTrustManager>()
+            .first()
 
     companion object {
         const val MAX_CONNECTIONS_PER_ROUTE = 50

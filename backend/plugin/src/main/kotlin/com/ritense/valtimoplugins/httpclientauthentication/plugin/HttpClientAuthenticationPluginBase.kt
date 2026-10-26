@@ -77,7 +77,7 @@ abstract class HttpClientAuthenticationPluginBase(
      */
     @PluginEvent(invokedOn = [EventType.CREATE, EventType.UPDATE])
     fun validateConfiguration() {
-        val problems = authenticationProblems() + tlsMaterial().problems()
+        val problems = listOfNotNull(authenticationProblem()) + tlsMaterial().problems()
         require(problems.isEmpty()) { problems.joinToString("; ") }
     }
 
@@ -141,34 +141,28 @@ abstract class HttpClientAuthenticationPluginBase(
                 scope = scope?.takeIf { it.isNotBlank() },
             )
         // The token endpoint gets the client certificate too
-        return if (tlsMaterial.isConfigured) {
-            tokenExchangeTokenCache.accessToken(config, tlsMaterial.digest) {
-                tlsRequestFactoryCache.tokenEndpointRequestFactory(tlsMaterial)
-            }
-        } else {
-            tokenExchangeTokenCache.accessToken(config, "") { null }
+        return tokenExchangeTokenCache.accessToken(config, tlsMaterial.digest) {
+            tlsMaterial.takeIf { it.isConfigured }?.let(tlsRequestFactoryCache::tokenEndpointRequestFactory)
         }
     }
 
     private fun requireAuthentication() {
-        authenticationProblems().firstOrNull()?.let { throw IllegalArgumentException(it) }
+        authenticationProblem()?.let { throw IllegalArgumentException(it) }
     }
 
-    private fun authenticationProblems(): List<String> {
+    private fun authenticationProblem(): String? {
         val missing =
             requiredProperties()
                 .filter { (_, value) -> value.isNullOrBlank() }
                 .map { (property, _) -> property }
         if (missing.isNotEmpty()) {
-            return listOf("Authentication type $authenticationType requires the properties: ${missing.joinToString()}")
+            return "Authentication type $authenticationType requires the properties: ${missing.joinToString()}"
         }
         if (authenticationType == AuthenticationType.ZGW_JWT && authSecret!!.length < ZgwJwt.MINIMUM_SECRET_LENGTH) {
-            return listOf(
-                "Property 'authSecret' must be at least ${ZgwJwt.MINIMUM_SECRET_LENGTH} characters " +
-                    "for authentication type $authenticationType",
-            )
+            return "Property 'authSecret' must be at least ${ZgwJwt.MINIMUM_SECRET_LENGTH} characters " +
+                "for authentication type $authenticationType"
         }
-        return emptyList()
+        return null
     }
 
     private fun requiredProperties(): List<Pair<String, String?>> =
@@ -186,7 +180,7 @@ abstract class HttpClientAuthenticationPluginBase(
                 )
         }
 
-    // Checked by authenticationProblems before the header is set
+    // Checked by authenticationProblem before the header is set
     private fun required(value: String?): String = requireNotNull(value?.takeIf { it.isNotBlank() })
 
     private fun tlsMaterial() =

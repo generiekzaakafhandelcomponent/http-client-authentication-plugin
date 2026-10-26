@@ -17,6 +17,7 @@
 
 package com.ritense.valtimoplugins.httpclientauthentication.tls
 
+import com.ritense.valtimoplugins.httpclientauthentication.sha256Hex
 import org.springframework.boot.ssl.SslBundle
 import org.springframework.boot.ssl.pem.PemContent
 import org.springframework.boot.ssl.pem.PemSslStore
@@ -25,14 +26,12 @@ import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.security.KeyStore
-import java.security.MessageDigest
 import java.security.PrivateKey
 import java.security.Signature
 import java.security.UnrecoverableKeyException
 import java.security.cert.X509Certificate
 import java.security.interfaces.RSAPrivateKey
 import java.security.interfaces.RSAPublicKey
-import java.util.HexFormat
 import javax.net.ssl.KeyManager
 import javax.net.ssl.KeyManagerFactory
 import javax.net.ssl.SSLContext
@@ -70,27 +69,22 @@ class TlsMaterial(
         get() = clientCertificate != null || keystorePath != null || serverCertificate != null || truststorePath != null
 
     /**
-     * Identifies the material: changes when a property changes, and when a keystore file is replaced.
+     * Identifies the material: changes when a property changes, and when a keystore file is replaced. Made from the
+     * properties, not from the constructor parameters of the same name, which still hold the ignored secrets.
      */
-    val digest: String
-        get() {
-            val sha256 = MessageDigest.getInstance("SHA-256")
-            listOf(
-                clientCertificate,
-                clientPrivateKey,
-                serverCertificate,
-                keystorePath,
-                keystoreSecret,
-                fileVersion(keystorePath),
-                truststorePath,
-                truststoreSecret,
-                fileVersion(truststorePath),
-            ).forEach {
-                sha256.update((it ?: "").toByteArray())
-                sha256.update(0)
-            }
-            return HexFormat.of().formatHex(sha256.digest())
-        }
+    val digest: String by lazy {
+        sha256Hex(
+            this.clientCertificate,
+            this.clientPrivateKey,
+            this.serverCertificate,
+            this.keystorePath,
+            this.keystoreSecret,
+            fileVersion(this.keystorePath),
+            this.truststorePath,
+            this.truststoreSecret,
+            fileVersion(this.truststorePath),
+        )
+    }
 
     /**
      * The problems that can be found without reading files, so a configuration is judged the same on every node.
@@ -218,12 +212,7 @@ class TlsMaterial(
         text: String,
         property: String,
     ): List<X509Certificate> {
-        val certificates =
-            try {
-                PemContent.of(text.trim()).certificates
-            } catch (e: Exception) {
-                null
-            }
+        val certificates = runCatching { PemContent.of(text.trim()).certificates }.getOrNull()
         require(!certificates.isNullOrEmpty()) { "Property '$property' does not contain a valid PEM certificate" }
         // The property isn't secret, so a key in it would be stored unencrypted
         require(!text.contains("PRIVATE KEY-----")) { "Property '$property' must not contain a private key" }
@@ -231,12 +220,7 @@ class TlsMaterial(
     }
 
     private fun readPrivateKey(text: String): PrivateKey {
-        val privateKey =
-            try {
-                PemContent.of(text.trim()).privateKey
-            } catch (e: Exception) {
-                null
-            }
+        val privateKey = runCatching { PemContent.of(text.trim()).privateKey }.getOrNull()
         return requireNotNull(
             privateKey,
         ) { "Property '$CLIENT_PRIVATE_KEY' does not contain a valid unencrypted PEM private key" }
@@ -298,13 +282,5 @@ class TlsMaterial(
         private const val KEYSTORE_SECRET = "keystoreSecret"
         private const val TRUSTSTORE_PATH = "truststorePath"
         private const val TRUSTSTORE_SECRET = "truststoreSecret"
-
-        fun jvmDefaultTrustManager(): X509ExtendedTrustManager =
-            TrustManagerFactory
-                .getInstance(TrustManagerFactory.getDefaultAlgorithm())
-                .apply { init(null as KeyStore?) }
-                .trustManagers
-                .filterIsInstance<X509ExtendedTrustManager>()
-                .first()
     }
 }
