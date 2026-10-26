@@ -12,6 +12,8 @@ De plugin werkt met en zonder de ZGW modules en brengt ze niet mee: hij past zic
 aan. Er is niets in te stellen. Code die de plugin opzoekt via de klasse `HttpClientAuthenticationPlugin` moet
 `HttpClientAuthenticator` of de plugin key gebruiken.
 
+Ondersteuning voor Valtimo 13.51.0.
+
 ## 2.0.1
 
 Ondersteuning voor Valtimo 13.48.0.
