@@ -19,13 +19,16 @@ import {PluginConfigurationData} from '@valtimo/plugin';
 
 interface HttpClientAuthenticationPluginConfig extends PluginConfigurationData {
     authenticationType: string;
-    authHeaderName?: string;
-    authSecret?: string;
-    tokenEndpoint?: string;
+    authHeaderName: string;
+    authSecret: string;
     clientId?: string;
     clientSecret?: string;
+    tokenEndpoint?: string;
     audience?: string;
     scope?: string;
+    clientCertificate?: string;
+    clientPrivateKey?: string;
+    serverCertificate?: string;
     keystorePath?: string;
     keystoreSecret?: string;
     truststorePath?: string;

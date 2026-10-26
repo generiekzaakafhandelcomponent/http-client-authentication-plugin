@@ -1,8 +1,15 @@
 package com.ritense.valtimoplugins.httpclientauthentication.autoconfiguration
 
+import com.ritense.plugin.repository.PluginDefinitionRepository
 import com.ritense.plugin.service.PluginService
+import com.ritense.valtimo.contract.client.ValtimoHttpRestClientConfigurationProperties
+import com.ritense.valtimo.contract.config.LiquibaseMasterChangeLogLocation
 import com.ritense.valtimoplugins.httpclientauthentication.plugin.HttpClientAuthenticationPluginFactory
+import com.ritense.valtimoplugins.httpclientauthentication.tls.TlsRequestFactoryCache
 import com.ritense.valtimoplugins.httpclientauthentication.tokenexchange.TokenExchangeClient
+import com.ritense.valtimoplugins.httpclientauthentication.tokenexchange.TokenExchangeTokenCache
+import com.ritense.valtimoplugins.httpclientauthentication.variant.PluginVariantCheck
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.annotation.Bean
@@ -10,6 +17,14 @@ import org.springframework.web.client.RestClient
 
 @AutoConfiguration
 class HttpClientAuthenticationPluginAutoconfiguration {
+    @Bean
+    @ConditionalOnMissingBean(HttpClientAuthenticationPluginFactory::class)
+    fun httpClientAuthenticationPluginFactory(
+        pluginService: PluginService,
+        tlsRequestFactoryCache: TlsRequestFactoryCache,
+        tokenExchangeTokenCache: TokenExchangeTokenCache,
+    ): HttpClientAuthenticationPluginFactory =
+        HttpClientAuthenticationPluginFactory(pluginService, tlsRequestFactoryCache, tokenExchangeTokenCache)
 
     @Bean
     @ConditionalOnMissingBean(TokenExchangeClient::class)
@@ -17,11 +32,30 @@ class HttpClientAuthenticationPluginAutoconfiguration {
         TokenExchangeClient(restClientBuilder)
 
     @Bean
-    @ConditionalOnMissingBean(HttpClientAuthenticationPluginFactory::class)
-    fun httpClientAuthenticationPluginFactory(
-        pluginService: PluginService,
+    @ConditionalOnMissingBean(TokenExchangeTokenCache::class)
+    fun httpClientAuthenticationTokenExchangeTokenCache(
         tokenExchangeClient: TokenExchangeClient,
-    ): HttpClientAuthenticationPluginFactory {
-        return HttpClientAuthenticationPluginFactory(pluginService, tokenExchangeClient)
-    }
+    ): TokenExchangeTokenCache = TokenExchangeTokenCache(tokenExchangeClient)
+
+    // Moves configurations of the old key http-client-authentication-plugin; after Valtimo's own changelogs (no order)
+    @Bean
+    fun httpClientAuthenticationLiquibaseChangeLogLocation(): LiquibaseMasterChangeLogLocation =
+        LiquibaseMasterChangeLogLocation("config/liquibase/http-client-authentication-master.xml")
+
+    @Bean
+    @ConditionalOnMissingBean(PluginVariantCheck::class)
+    fun httpClientAuthenticationPluginVariantCheck(
+        pluginDefinitionRepository: PluginDefinitionRepository,
+    ): PluginVariantCheck = PluginVariantCheck(pluginDefinitionRepository)
+
+    @Bean
+    @ConditionalOnMissingBean(TlsRequestFactoryCache::class)
+    fun httpClientAuthenticationTlsRequestFactoryCache(
+        restClientProperties: ObjectProvider<ValtimoHttpRestClientConfigurationProperties>,
+    ): TlsRequestFactoryCache =
+        TlsRequestFactoryCache(
+            restClientProperties.getIfAvailable {
+                ValtimoHttpRestClientConfigurationProperties()
+            },
+        )
 }

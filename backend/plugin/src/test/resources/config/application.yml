@@ -32,3 +32,8 @@ spring-actuator:
 valtimo:
   plugin:
     encryption-secret: "abcdefghijklmnop"
+camunda:
+  bpm:
+    generic-properties:
+      properties:
+        enforceHistoryTimeToLive: false

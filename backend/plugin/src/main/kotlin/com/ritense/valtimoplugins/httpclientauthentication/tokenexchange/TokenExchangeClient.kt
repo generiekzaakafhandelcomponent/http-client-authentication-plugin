@@ -21,6 +21,7 @@ import com.ritense.valtimo.contract.annotation.SkipComponentScan
 import com.ritense.valtimoplugins.httpclientauthentication.exception.TokenExchangeException
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.http.MediaType
+import org.springframework.http.client.ClientHttpRequestFactory
 import org.springframework.stereotype.Component
 import org.springframework.util.LinkedMultiValueMap
 import org.springframework.util.MultiValueMap
@@ -39,18 +40,25 @@ import org.springframework.web.client.body
 class TokenExchangeClient(
     private val restClientBuilder: RestClient.Builder,
 ) {
-
-    fun exchangeToken(config: TokenExchangeConfig): TokenExchangeTokenResponse {
-        val subjectToken = requestToken(
-            config.tokenEndpoint,
-            formOf(
-                "grant_type" to GRANT_TYPE_CLIENT_CREDENTIALS,
-                "client_id" to config.clientId,
-                "client_secret" to config.clientSecret,
-                "scope" to config.scope,
-            ),
-            "client_credentials",
-        )
+    /**
+     * @param requestFactory replaces the application's request factory, e.g. to present a client certificate
+     */
+    fun exchangeToken(
+        config: TokenExchangeConfig,
+        requestFactory: ClientHttpRequestFactory? = null,
+    ): TokenExchangeTokenResponse {
+        val subjectToken =
+            requestToken(
+                config.tokenEndpoint,
+                formOf(
+                    "grant_type" to GRANT_TYPE_CLIENT_CREDENTIALS,
+                    "client_id" to config.clientId,
+                    "client_secret" to config.clientSecret,
+                    "scope" to config.scope,
+                ),
+                "client_credentials",
+                requestFactory,
+            )
 
         return requestToken(
             config.tokenEndpoint,
@@ -63,6 +71,7 @@ class TokenExchangeClient(
                 "audience" to config.audience,
             ),
             "token-exchange",
+            requestFactory,
         )
     }
 
@@ -70,25 +79,30 @@ class TokenExchangeClient(
         tokenEndpoint: java.net.URI,
         form: MultiValueMap<String, String>,
         step: String,
+        requestFactory: ClientHttpRequestFactory?,
     ): TokenExchangeTokenResponse {
-        val response = try {
-            restClientBuilder
-                .clone()
-                .build()
-                .post()
-                .uri(tokenEndpoint)
-                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                .body(form)
-                .retrieve()
-                .body<TokenExchangeTokenResponse>()
-        } catch (ex: RestClientException) {
-            logger.warn(ex) { "Keycloak $step request to $tokenEndpoint failed" }
-            throw TokenExchangeException("Could not obtain a JWT token via Keycloak $step: ${ex.message}", ex)
-        }
+        val response =
+            try {
+                restClientBuilder
+                    .clone()
+                    .apply { builder -> requestFactory?.let { builder.requestFactory(it) } }
+                    .build()
+                    .post()
+                    .uri(tokenEndpoint)
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .body(form)
+                    .retrieve()
+                    .body<TokenExchangeTokenResponse>()
+            } catch (ex: RestClientException) {
+                logger.warn(ex) { "Keycloak $step request to $tokenEndpoint failed" }
+                throw TokenExchangeException("Could not obtain a JWT token via Keycloak $step: ${ex.message}", ex)
+            }
 
         if (response?.accessToken.isNullOrBlank()) {
             val reason = response?.errorDescription ?: response?.error ?: "no access_token in response"
-            throw TokenExchangeException("Keycloak $step at $tokenEndpoint did not return a valid access token: $reason")
+            throw TokenExchangeException(
+                "Keycloak $step at $tokenEndpoint did not return a valid access token: $reason",
+            )
         }
 
         return response

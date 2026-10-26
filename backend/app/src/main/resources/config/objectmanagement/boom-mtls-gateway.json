@@ -1,0 +1,11 @@
+{
+    "id": "7c0b1a52-4f0e-4c55-9a0e-6f3e7e2a1d10",
+    "title": "Bomen via mTLS gateway",
+    "objecttypenApiPluginConfigurationId": "bc109d5e-0388-4637-bcfa-b454f402bef8",
+    "objecttypeId": "feeaa795-d212-4fa2-bb38-2c34996e5702",
+    "objecttypeVersion": 2,
+    "objectenApiPluginConfigurationId": "7c0b1a52-4f0e-4c55-9a0e-6f3e7e2a1d02",
+    "showInDataMenu": true,
+    "formDefinitionView": "boom.summary",
+    "formDefinitionEdit": "boom.editform"
+}

@@ -90,7 +90,7 @@ services:
       - CACHE_DEFAULT=openzaak-redis:6379/0
       - CACHE_AXES=openzaak-redis:6379/0
       - DEBUG=true
-      - ALLOWED_HOSTS=localhost,host.docker.internal,172.17.0.1,openzaak
+      - ALLOWED_HOSTS=localhost,127.0.0.1,host.docker.internal,172.17.0.1,openzaak
       - OPENZAAK_SUPERUSER_USERNAME=admin
       - OPENZAAK_SUPERUSER_EMAIL=admin@admin.org
       - DJANGO_SUPERUSER_PASSWORD=admin
@@ -330,6 +330,24 @@ services:
       - open-notificaties-database
       - open-notificaties-rabbitmq
       - open-notificaties-redis
+
+  # Lets requests through only with a client certificate signed by the sandbox CA, see imports/mtls-gateway
+  mtls-gateway:
+    image: nginx:1.30.6-alpine
+    container_name: plugin-docker-compose-mtls-gateway
+    profiles:
+      - zgw
+      - objecten
+      - openzaak
+      - mtls
+    ports:
+      - "8443:8443" # Objecten API
+      - "8444:8444" # Open Zaak
+      - "8445:8445" # Open Notificaties
+      - "8447:8447" # Objecttypen API
+    volumes:
+      - ./imports/mtls-gateway/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./imports/mtls-gateway/certs:/etc/nginx/certs:ro
 
   open-notificaties:
     image: openzaak/open-notificaties:1.8.1
