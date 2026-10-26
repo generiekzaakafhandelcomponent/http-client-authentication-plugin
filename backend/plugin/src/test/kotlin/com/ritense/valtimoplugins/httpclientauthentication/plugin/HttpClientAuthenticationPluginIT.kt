@@ -68,6 +68,10 @@ internal class HttpClientAuthenticationPluginIT : BaseIntegrationTest() {
         val definition = pluginDefinitionRepository.findById(PLUGIN_KEY).orElseThrow()
 
         assertEquals(
+            "valtimoplugins.httpclientauthentication.variant.z11111111.HttpClientAuthenticationPlugin",
+            definition.fullyQualifiedClassName,
+        )
+        assertEquals(
             setOf(
                 "http-client-authentication",
                 "zaken-api-authentication",
@@ -80,6 +84,25 @@ internal class HttpClientAuthenticationPluginIT : BaseIntegrationTest() {
                 "klantinteracties-api-authentication",
             ),
             definition.categories.map { it.key }.toSet(),
+        )
+    }
+
+    @Test
+    @Transactional
+    fun `should deploy the properties declared by the variant, with the secrets encrypted`() {
+        val definition = pluginDefinitionRepository.findById(PLUGIN_KEY).orElseThrow()
+
+        assertEquals(
+            mapOf(
+                "authenticationType" to false,
+                "authHeaderName" to false,
+                "authSecret" to true,
+                "clientId" to false,
+                "clientCertificate" to false,
+                "clientPrivateKey" to true,
+                "serverCertificate" to false,
+            ),
+            definition.properties.associate { it.fieldName to it.secret },
         )
     }
 
@@ -323,7 +346,7 @@ internal class HttpClientAuthenticationPluginIT : BaseIntegrationTest() {
             objectMapper.valueToTree(editedProperties),
         )
 
-        val plugin = pluginService.createInstance(configuration.id) as HttpClientAuthenticationPlugin
+        val plugin = pluginService.createInstance(configuration.id) as HttpClientAuthenticationPluginBase
         assertEquals(TlsFixtures.CLIENT_PRIVATE_KEY, plugin.clientPrivateKey)
         plugin.validateConfiguration()
     }

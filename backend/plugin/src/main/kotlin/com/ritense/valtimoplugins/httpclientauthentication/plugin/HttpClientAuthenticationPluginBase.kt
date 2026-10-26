@@ -17,71 +17,39 @@
 
 package com.ritense.valtimoplugins.httpclientauthentication.plugin
 
-import com.ritense.besluitenapi.BesluitenApiAuthentication
-import com.ritense.catalogiapi.CatalogiApiAuthentication
-import com.ritense.documentenapi.DocumentenApiAuthentication
-import com.ritense.klantinteractiesapi.KlantinteractiesApiAuthentication
-import com.ritense.notificatiesapi.NotificatiesApiAuthentication
-import com.ritense.objectenapi.ObjectenApiAuthentication
-import com.ritense.objecttypenapi.ObjecttypenApiAuthentication
-import com.ritense.openzaak.plugin.token.OpenZaakPluginTokenGeneratorService
-import com.ritense.plugin.annotation.Plugin
 import com.ritense.plugin.annotation.PluginEvent
-import com.ritense.plugin.annotation.PluginProperty
 import com.ritense.plugin.domain.EventType
 import com.ritense.plugin.domain.PluginConfigurationId
 import com.ritense.valtimoplugins.httpclientauthentication.HttpClientAuthenticator
 import com.ritense.valtimoplugins.httpclientauthentication.model.AuthenticationType
 import com.ritense.valtimoplugins.httpclientauthentication.tls.TlsMaterial
 import com.ritense.valtimoplugins.httpclientauthentication.tls.TlsRequestFactoryCache
-import com.ritense.zakenapi.ZakenApiAuthentication
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.ritense.valtimoplugins.httpclientauthentication.zgw.ZgwJwt
 import org.springframework.http.HttpHeaders
 import org.springframework.web.client.RestClient
 import org.springframework.web.reactive.function.client.ClientRequest
 import org.springframework.web.reactive.function.client.ClientResponse
+import org.springframework.web.reactive.function.client.ExchangeFilterFunction
 import org.springframework.web.reactive.function.client.ExchangeFunction
 import reactor.core.publisher.Mono
 
-@Plugin(
-    key = "http-client-authentication-plugin",
-    title = "Http Client Authentication Plugin",
-    description = "Provides authentication and mutual TLS for outbound REST clients, including the ZGW API plugins",
-)
-@Suppress("UNUSED")
-class HttpClientAuthenticationPlugin(
-    override val configurationId: PluginConfigurationId,
-    private val tokenGeneratorService: OpenZaakPluginTokenGeneratorService,
+/**
+ * All logic of the plugin. The `@Plugin` classes are generated variants of this class, one per combination of ZGW
+ * modules, that add the ZGW authentication interfaces and declare the properties (Valtimo only reads declared fields).
+ * See [com.ritense.valtimoplugins.httpclientauthentication.variant.PluginVariants].
+ */
+abstract class HttpClientAuthenticationPluginBase(
+    val configurationId: PluginConfigurationId,
     private val tlsRequestFactoryCache: TlsRequestFactoryCache,
 ) : HttpClientAuthenticator,
-    ZakenApiAuthentication,
-    DocumentenApiAuthentication,
-    CatalogiApiAuthentication,
-    BesluitenApiAuthentication,
-    NotificatiesApiAuthentication,
-    ObjectenApiAuthentication,
-    ObjecttypenApiAuthentication,
-    KlantinteractiesApiAuthentication {
-    @PluginProperty(key = "authenticationType", secret = false, required = true)
-    lateinit var authenticationType: AuthenticationType
-
-    @PluginProperty(key = "authHeaderName", secret = false, required = false)
-    var authHeaderName: String? = null
-
-    @PluginProperty(key = "authSecret", secret = true, required = false)
-    var authSecret: String? = null
-
-    @PluginProperty(key = "clientId", secret = false, required = false)
-    var clientId: String? = null
-
-    @PluginProperty(key = "clientCertificate", secret = false, required = false)
-    var clientCertificate: String? = null
-
-    @PluginProperty(key = "clientPrivateKey", secret = true, required = false)
-    var clientPrivateKey: String? = null
-
-    @PluginProperty(key = "serverCertificate", secret = false, required = false)
-    var serverCertificate: String? = null
+    ExchangeFilterFunction {
+    abstract var authenticationType: AuthenticationType
+    abstract var authHeaderName: String?
+    abstract var authSecret: String?
+    abstract var clientId: String?
+    abstract var clientCertificate: String?
+    abstract var clientPrivateKey: String?
+    abstract var serverCertificate: String?
 
     @PluginEvent(invokedOn = [EventType.CREATE, EventType.UPDATE])
     fun validateConfiguration() {
@@ -126,14 +94,21 @@ class HttpClientAuthenticationPlugin(
 
             AuthenticationType.ZGW_JWT -> {
                 val secret = required(authSecret, "authSecret")
-                headers.setBearerAuth(tokenGeneratorService.generateToken(secret, required(clientId, "clientId")))
+                require(secret.length >= ZgwJwt.MINIMUM_SECRET_LENGTH) {
+                    "Property 'authSecret' must be at least ${ZgwJwt.MINIMUM_SECRET_LENGTH} characters " +
+                        "for authentication type $authenticationType"
+                }
+                headers.setBearerAuth(ZgwJwt.generate(required(clientId, "clientId"), secret))
             }
 
             AuthenticationType.NONE -> Unit
         }
     }
 
-    private fun required(value: String?, property: String): String =
+    private fun required(
+        value: String?,
+        property: String,
+    ): String =
         requireNotNull(value?.takeIf { it.isNotBlank() }) {
             "Property '$property' is required for authentication type $authenticationType"
         }
@@ -141,6 +116,9 @@ class HttpClientAuthenticationPlugin(
     private fun tlsMaterial() = TlsMaterial(clientCertificate, clientPrivateKey, serverCertificate)
 
     companion object {
-        val logger = KotlinLogging.logger {}
+        const val PLUGIN_KEY = "http-client-authentication-plugin"
+        const val PLUGIN_TITLE = "Http Client Authentication Plugin"
+        const val PLUGIN_DESCRIPTION =
+            "Provides authentication and mutual TLS for outbound REST clients, including the ZGW API plugins"
     }
 }

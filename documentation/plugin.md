@@ -12,14 +12,24 @@ that call an external API can use it as well.
 
 ## Installation
 
-From version 3.0.0 the plugin needs a GZAC application (with the ZGW modules). For a Valtimo application without
-them, use version 2.x.
+The plugin works in every Valtimo 13 application, with or without the ZGW modules. Add the dependencies below; there
+is nothing to configure.
+
+| To use it in                                       | Add                                                                              |
+|----------------------------------------------------|----------------------------------------------------------------------------------|
+| Plugins that ask for an `HttpClientAuthenticator`  | Only this plugin                                                                 |
+| The ZGW API plugins                                | Only this plugin. It supports the ZGW API modules your application already has   |
+
+The ZGW API modules are not brought along: the plugin adapts to the ones in your application. An application with only
+the Objecten API, for example, can select the plugin in the Objecten API plugin (and in the Zaken, Documenten and
+Catalogi API plugins, which the Objecten API module brings along). All authentication types, including ZGW JWT, and
+mutual TLS work in every application.
 
 ### Backend
 
 ```kotlin
 dependencies {
-    implementation("com.ritense.valtimoplugins:http-client-authentication:3.0.0")
+    implementation("com.ritense.valtimoplugins:http-client-authentication:2.1.0")
 }
 ```
 
@@ -28,7 +38,7 @@ dependencies {
 ```json
 {
   "dependencies": {
-    "@valtimo-plugins/http-client-authentication": "3.0.0"
+    "@valtimo-plugins/http-client-authentication": "2.1.0"
   }
 }
 ```
@@ -134,4 +144,24 @@ class SomeOtherPlugin(
 }
 ```
 
+Look the plugin up by the `HttpClientAuthenticator` interface or by its key `http-client-authentication-plugin`, not
+by a plugin class: the class differs per application (see below).
+
 The plugin has no process actions.
+
+## How the ZGW support works
+
+The ZGW API plugins only accept a plugin that implements their own authentication interface, such as
+`ZakenApiAuthentication`, and those interfaces live in the ZGW modules. So the plugin contains a plugin class for every
+combination of ZGW modules (generated at build time), all with the same key and the same properties. At startup the
+plugin checks which ZGW modules are on the classpath and lets Valtimo scan only the matching class, by adding its
+package to `valtimo.annotation-scan.accepted-packages`. The packages your application configured there are kept.
+
+When you add or remove a ZGW module, the next startup picks another class under the same key; existing
+configurations keep working.
+
+The classes live in packages under `valtimoplugins.httpclientauthentication.variant`. If Valtimo scans more than the
+selected one, for example because `valtimo.annotation-scan.accepted-packages` includes
+`valtimoplugins.httpclientauthentication`, the application stops at startup with a message that says which class it
+expected.
+

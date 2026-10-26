@@ -17,7 +17,6 @@
 package com.ritense.valtimoplugins.httpclientauthentication.plugin
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.ritense.openzaak.plugin.token.ValtimoOpenZaakPluginTokenGeneratorService
 import com.ritense.plugin.domain.PluginConfigurationId
 import com.ritense.valtimo.contract.client.ValtimoHttpRestClientConfigurationProperties
 import com.ritense.valtimoplugins.httpclientauthentication.model.AuthenticationType
@@ -44,6 +43,7 @@ import org.springframework.web.client.body
 import org.springframework.web.reactive.function.client.ClientResponse
 import org.springframework.web.reactive.function.client.WebClient
 import reactor.core.publisher.Mono
+import valtimoplugins.httpclientauthentication.variant.z00000000.HttpClientAuthenticationPlugin
 import java.net.SocketTimeoutException
 import java.time.Duration
 import java.util.Base64
@@ -155,9 +155,12 @@ internal class HttpClientAuthenticationPluginTest {
                 authSecret = "shorter-than-32-characters"
             }
 
-        val exception = assertThrows<IllegalStateException> { plugin.validateConfiguration() }
+        val exception = assertThrows<IllegalArgumentException> { plugin.validateConfiguration() }
 
-        assertEquals("SecretKey needs to be at least 32 in length", exception.message)
+        assertEquals(
+            "Property 'authSecret' must be at least 32 characters for authentication type ZGW_JWT",
+            exception.message,
+        )
     }
 
     @Test
@@ -413,7 +416,7 @@ internal class HttpClientAuthenticationPluginTest {
     fun `should reuse one request factory per set of certificates`() {
         val cache = TlsRequestFactoryCache(restClientProperties)
 
-        fun requestFactoryOf(plugin: HttpClientAuthenticationPlugin) =
+        fun requestFactoryOf(plugin: HttpClientAuthenticationPluginBase) =
             argumentCaptor<ClientHttpRequestFactory>()
                 .apply {
                     val builder = mock<RestClient.Builder>(defaultAnswer = Answers.RETURNS_SELF)
@@ -448,7 +451,7 @@ internal class HttpClientAuthenticationPluginTest {
     }
 
     private fun assertTlsError(
-        plugin: HttpClientAuthenticationPlugin,
+        plugin: HttpClientAuthenticationPluginBase,
         message: String,
     ) {
         val onSave = assertThrows<IllegalArgumentException> { plugin.validateConfiguration() }
@@ -459,7 +462,7 @@ internal class HttpClientAuthenticationPluginTest {
     }
 
     private fun call(
-        plugin: HttpClientAuthenticationPlugin,
+        plugin: HttpClientAuthenticationPluginBase,
         url: String,
     ): String? =
         sharedRestClientBuilder
@@ -471,7 +474,7 @@ internal class HttpClientAuthenticationPluginTest {
             .retrieve()
             .body<String>()
 
-    private fun headersOf(plugin: HttpClientAuthenticationPlugin): HttpHeaders {
+    private fun headersOf(plugin: HttpClientAuthenticationPluginBase): HttpHeaders {
         val headers = HttpHeaders()
         val builder = RestClient.builder()
         plugin.applyAuth(builder)
@@ -482,12 +485,8 @@ internal class HttpClientAuthenticationPluginTest {
     private fun plugin(
         type: AuthenticationType,
         cache: TlsRequestFactoryCache = TlsRequestFactoryCache(restClientProperties),
-        configure: HttpClientAuthenticationPlugin.() -> Unit = {},
-    ) = HttpClientAuthenticationPlugin(
-        PluginConfigurationId.newId(),
-        ValtimoOpenZaakPluginTokenGeneratorService(),
-        cache,
-    ).also {
+        configure: HttpClientAuthenticationPluginBase.() -> Unit = {},
+    ) = HttpClientAuthenticationPlugin(PluginConfigurationId.newId(), cache).also {
         // Not apply: the plugin is an ExchangeFilterFunction, whose own apply(ExchangeFunction) would win
         it.authenticationType = type
         it.configure()

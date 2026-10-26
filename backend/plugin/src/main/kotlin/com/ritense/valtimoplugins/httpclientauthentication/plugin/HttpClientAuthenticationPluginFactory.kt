@@ -17,16 +17,25 @@
 
 package com.ritense.valtimoplugins.httpclientauthentication.plugin
 
-import com.ritense.openzaak.plugin.token.OpenZaakPluginTokenGeneratorService
 import com.ritense.plugin.PluginFactory
+import com.ritense.plugin.domain.PluginConfigurationId
 import com.ritense.plugin.service.PluginService
 import com.ritense.valtimoplugins.httpclientauthentication.tls.TlsRequestFactoryCache
+import com.ritense.valtimoplugins.httpclientauthentication.variant.PluginVariant
+import com.ritense.valtimoplugins.httpclientauthentication.variant.PluginVariants
 
 class HttpClientAuthenticationPluginFactory(
     pluginService: PluginService,
-    private val tokenGeneratorService: OpenZaakPluginTokenGeneratorService,
     private val tlsRequestFactoryCache: TlsRequestFactoryCache,
-) : PluginFactory<HttpClientAuthenticationPlugin>(pluginService) {
-    override fun create(): HttpClientAuthenticationPlugin =
-        HttpClientAuthenticationPlugin(pluginConfigurationId, tokenGeneratorService, tlsRequestFactoryCache)
+    variant: PluginVariant = PluginVariants.selected,
+) : PluginFactory<HttpClientAuthenticationPluginBase>(pluginService) {
+    // The same variant as Valtimo deployed, so canCreate matches the plugin definition
+    private val constructor =
+        Class
+            .forName(variant.className, true, javaClass.classLoader)
+            .asSubclass(HttpClientAuthenticationPluginBase::class.java)
+            .getConstructor(PluginConfigurationId::class.java, TlsRequestFactoryCache::class.java)
+
+    override fun create(): HttpClientAuthenticationPluginBase =
+        constructor.newInstance(pluginConfigurationId, tlsRequestFactoryCache)
 }

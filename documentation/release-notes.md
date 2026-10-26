@@ -2,12 +2,15 @@
 
 Overzicht van wijzigingen per versie van de Http Client Authentication plugin.
 
-## 3.0.0
+## 2.1.0
 
 De plugin kan nu als authenticatie gekozen worden in de Zaken, Documenten, Catalogi, Besluiten, Notificaties, Objecten,
 Objecttypen en Klantinteracties API plugins, met de nieuwe authenticatietypes Token en Client ID / secret (ZGW JWT).
-Daarnaast kunnen een clientcertificaat, private key en servercertificaat (PEM) ingevuld worden voor mutual TLS; de
-plugin vereist vanaf deze versie de GZAC ZGW modules.
+Daarnaast kunnen een clientcertificaat, private key en servercertificaat (PEM) ingevuld worden voor mutual TLS.
+
+De plugin werkt met en zonder de ZGW modules en brengt ze niet mee: hij past zich aan de ZGW modules in de applicatie
+aan. Er is niets in te stellen. Code die de plugin opzoekt via de klasse `HttpClientAuthenticationPlugin` moet
+`HttpClientAuthenticator` of de plugin key gebruiken.
 
 ## 2.0.1
 
