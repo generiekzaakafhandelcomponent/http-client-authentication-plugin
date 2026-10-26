@@ -180,7 +180,6 @@ const httpClientAuthenticationPluginSpecification: PluginSpecification = {
             tokenEndpointPlaceholder: 'https://keycloak.example.com/realms/example/protocol/openid-connect/token',
             tokenEndpointTooltip:
                 'Der Token-Endpoint von Keycloak. GZAC holt hier per Client Credentials ein Token und tauscht es gegen ein Token für die Audience.',
-            tokenExchangeClientSecretPlaceholder: '00000000-0000-0000-0000-000000000000',
             audience: 'Audience',
             audiencePlaceholder: 'haal-centraal',
             audienceTooltip: 'Der Keycloak-Client, für den das Token getauscht wird, meist der der API.',
