@@ -69,22 +69,22 @@ class TlsMaterial(
         get() = clientCertificate != null || keystorePath != null || serverCertificate != null || truststorePath != null
 
     /**
-     * Identifies the material: changes when a property changes, and when a keystore file is replaced. Made from the
-     * properties, not from the constructor parameters of the same name, which still hold the ignored secrets.
+     * Identifies the material: changes when a property changes, and when a keystore file is replaced, so it is computed
+     * on every use (a client built once still notices a replaced file).
      */
-    val digest: String by lazy {
-        sha256Hex(
-            this.clientCertificate,
-            this.clientPrivateKey,
-            this.serverCertificate,
-            this.keystorePath,
-            this.keystoreSecret,
-            fileVersion(this.keystorePath),
-            this.truststorePath,
-            this.truststoreSecret,
-            fileVersion(this.truststorePath),
-        )
-    }
+    val digest: String
+        get() =
+            sha256Hex(
+                clientCertificate,
+                clientPrivateKey,
+                serverCertificate,
+                keystorePath,
+                keystoreSecret,
+                fileVersion(keystorePath),
+                truststorePath,
+                truststoreSecret,
+                fileVersion(truststorePath),
+            )
 
     /**
      * The problems that can be found without reading files, so a configuration is judged the same on every node.
