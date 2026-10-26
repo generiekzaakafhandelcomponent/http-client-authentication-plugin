@@ -82,6 +82,9 @@ export class HttpClientAuthenticationPluginConfigurationComponent
 
     selectedAuthType$ = new BehaviorSubject(this.bearerRadio)
 
+    // Rebuilds the form for each prefilled configuration
+    readonly formVersion$ = new BehaviorSubject<number>(0);
+
     // Frontend-only switch: the certificate fields are shown, validated and saved only while it is on
     readonly tlsEnabled$ = new BehaviorSubject<boolean>(false);
 
@@ -90,6 +93,9 @@ export class HttpClientAuthenticationPluginConfigurationComponent
 
     ngOnInit(): void {
         this.prefillSubscription = this.prefillConfiguration$.pipe(map(config => {
+            this.formValue$.next(null);
+            this.valid$.next(false);
+            this.formVersion$.next(this.formVersion$.getValue() + 1);
             this.prefilledClientCertificate = config?.clientCertificate?.trim() ?? '';
             this.prefilledKeystorePath = config?.keystorePath?.trim() ?? '';
             this.prefilledTruststorePath = config?.truststorePath?.trim() ?? '';

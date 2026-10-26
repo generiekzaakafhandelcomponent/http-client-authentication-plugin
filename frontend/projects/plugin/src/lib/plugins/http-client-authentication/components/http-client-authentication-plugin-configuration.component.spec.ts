@@ -17,7 +17,7 @@
 import {ComponentFixture, TestBed} from '@angular/core/testing';
 import {TranslateModule} from '@ngx-translate/core';
 import {PluginTranslationService} from '@valtimo/plugin';
-import {of, Subject} from 'rxjs';
+import {BehaviorSubject, Observable, of, Subject} from 'rxjs';
 import {HttpClientAuthenticationPluginConfigurationComponent} from './http-client-authentication-plugin-configuration.component';
 import {HttpClientAuthenticationPluginModule} from '../http-client-authentication.plugin.module';
 import {httpClientAuthenticationPluginSpecification} from '../http-client-authentication.plugin.specification';
@@ -259,7 +259,11 @@ describe('HttpClientAuthenticationPluginConfigurationComponent', () => {
 describe('HttpClientAuthenticationPluginConfigurationComponent screen', () => {
     const translations = httpClientAuthenticationPluginSpecification.pluginTranslations;
 
-    function render(language: 'nl' | 'en'): ComponentFixture<HttpClientAuthenticationPluginConfigurationComponent> {
+    function render(
+        language: 'nl' | 'en',
+        prefill$: Observable<HttpClientAuthenticationPluginConfig | null> = of(null),
+        disabled$: Observable<boolean> = of(false),
+    ): ComponentFixture<HttpClientAuthenticationPluginConfigurationComponent> {
         TestBed.resetTestingModule();
         TestBed.configureTestingModule({
             imports: [HttpClientAuthenticationPluginModule, TranslateModule.forRoot()],
@@ -272,9 +276,9 @@ describe('HttpClientAuthenticationPluginConfigurationComponent screen', () => {
         });
         const fixture = TestBed.createComponent(HttpClientAuthenticationPluginConfigurationComponent);
         fixture.componentInstance.save$ = new Subject<void>();
-        fixture.componentInstance.disabled$ = of(false);
+        fixture.componentInstance.disabled$ = disabled$;
         fixture.componentInstance.pluginId = 'http-client-authentication-plugin';
-        fixture.componentInstance.prefillConfiguration$ = of(null as unknown as HttpClientAuthenticationPluginConfig);
+        fixture.componentInstance.prefillConfiguration$ = prefill$ as Observable<HttpClientAuthenticationPluginConfig>;
         fixture.detectChanges();
         return fixture;
     }
@@ -321,6 +325,37 @@ describe('HttpClientAuthenticationPluginConfigurationComponent screen', () => {
         expect(inputNames(fixture)).toEqual(['configurationTitle', 'authSecret', 'clientCertificate', 'clientPrivateKey', 'serverCertificate']);
         clickTlsToggle(fixture);
         expect(inputNames(fixture)).toEqual(['configurationTitle', 'authSecret']);
+    });
+
+    it('starts with empty secrets when Valtimo reuses the screen for another configuration', () => {
+        const prefill$ = new BehaviorSubject({configurationTitle: 'A', authenticationType: 'BEARER'} as HttpClientAuthenticationPluginConfig);
+        const fixture = render('en', prefill$);
+        const emitted: HttpClientAuthenticationPluginConfig[] = [];
+        fixture.componentInstance.configuration.subscribe(configuration => emitted.push(configuration));
+        const secret = () => fixture.nativeElement.querySelector('v-input[name="authSecret"] input') as HTMLInputElement;
+        secret().value = 'typed-for-A';
+        secret().dispatchEvent(new Event('input'));
+        fixture.detectChanges();
+
+        prefill$.next({configurationTitle: 'B', authenticationType: 'BEARER'} as HttpClientAuthenticationPluginConfig);
+        fixture.detectChanges();
+        (fixture.componentInstance.save$ as Subject<void>).next();
+
+        expect(secret().value).toBe('');
+        expect(emitted.map(configuration => configuration.authSecret)).not.toContain('typed-for-A');
+    });
+
+    it('disables the choices too while the screen is disabled', async () => {
+        const fixture = render('en', of(null), of(true));
+        fixture.componentInstance.tlsEnabledChange(true);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        fixture.detectChanges();
+
+        const radios = Array.from(fixture.nativeElement.querySelectorAll('input[type="radio"]')) as HTMLInputElement[];
+
+        expect(radios.length).toBeGreaterThan(0);
+        expect(radios.every(radio => radio.disabled)).toBeTrue();
     });
 
     it('shows the keystore fields when the certificates come from a keystore', () => {

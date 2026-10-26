@@ -21,6 +21,8 @@
     selectedAuthType: selectedAuthType$ | async,
   } as obs"
 >
+    <!-- Valtimo reuses this component for the next configuration: a new form, so nothing typed carries over -->
+    <ng-container *ngFor="let formVersion of [formVersion$ | async]">
     <v-form
             (valueChange)="formValueChange($event)"
             *ngIf="{
@@ -45,6 +47,7 @@
                 [title]="'authenticationType' | pluginTranslate: pluginId | async"
                 [radioValues]="authenticationTypeOptions"
                 [defaultValue]="(selectedAuthType$|async).value"
+                [disabled]="obs.disabled"
                 [margin]="true"
                 (valueChange)="radioValueChange($event)"
         >
@@ -195,6 +198,7 @@
                     [title]="'tlsSource' | pluginTranslate: pluginId | async"
                     [radioValues]="tlsSourceOptions"
                     [defaultValue]="obs.tlsSource"
+                    [disabled]="obs.disabled"
                     [margin]="true"
                     (valueChange)="tlsSourceChange($event)"
             >
@@ -293,4 +297,5 @@
             </v-input>
         </ng-container>
     </v-form>
+    </ng-container>
 </ng-container>
