@@ -883,6 +883,40 @@ internal class HttpClientAuthenticationPluginTest {
         TokenExchangeClient::class.java.getMethod("exchangeToken", TokenExchangeConfig::class.java)
     }
 
+    @Test
+    fun `should call the token endpoint with a replaced keystore from a client built before`() {
+        whenever(tokenExchangeClient.exchangeToken(any(), anyOrNull()))
+            .thenReturn(TokenExchangeTokenResponse("short-lived-jwt", 0))
+        val keystore = TlsFixtures.clientKeystore("PKCS12", temporaryDirectory)
+        val builder = RestClient.builder()
+        tokenExchangePlugin(TokenExchangeTokenCache(tokenExchangeClient)) {
+            keystorePath = keystore.toString()
+            keystoreSecret = TlsFixtures.KEYSTORE_SECRET
+        }.applyAuth(builder)
+        val server = MockRestServiceServer.bindTo(builder).build()
+        server.expect(ExpectedCount.times(2), requestTo(RESOURCE_URL)).andRespond(withSuccess())
+        val restClient = builder.build()
+
+        restClient
+            .get()
+            .uri(RESOURCE_URL)
+            .retrieve()
+            .toBodilessEntity()
+        Files.setLastModifiedTime(
+            keystore,
+            FileTime.fromMillis(Files.getLastModifiedTime(keystore).toMillis() + 60_000),
+        )
+        restClient
+            .get()
+            .uri(RESOURCE_URL)
+            .retrieve()
+            .toBodilessEntity()
+
+        val requestFactories = argumentCaptor<ClientHttpRequestFactory>()
+        verify(tokenExchangeClient, times(2)).exchangeToken(any(), requestFactories.capture())
+        assertFalse(requestFactories.firstValue === requestFactories.secondValue)
+    }
+
     private fun tokenExchangePlugin(
         tokenCache: TokenExchangeTokenCache,
         cache: TlsRequestFactoryCache = TlsRequestFactoryCache(restClientProperties),
