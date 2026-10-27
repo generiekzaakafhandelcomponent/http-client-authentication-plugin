@@ -87,6 +87,8 @@ Choose how GZAC logs in to the API:
 | **Token exchange**              | APIs behind Keycloak token exchange, such as Haal Centraal | **Token endpoint URL**, **Client ID**, **Client secret** and **Audience**; **Scope** is optional |
 | **None**                        | APIs without authentication                   | –                                                      |
 
+![Token exchange configuration](assets/plugin/01-token-exchange.png)
+
 With **Token exchange**, GZAC gets a token from the Keycloak token endpoint with its client ID and secret, exchanges it
 for a token for the audience (usually the Keycloak client of the API) and sends that as bearer token. The token is
 reused until shortly before it expires, also by other plugins that use the same configuration.
@@ -122,6 +124,8 @@ As **Keystore (JKS / PKCS12)**:
 - **Truststore path** and **Truststore password** – optional. A JKS or PKCS12 file with the certificates to trust
   instead of the publicly trusted ones.
 
+![Certificates from a keystore file](assets/plugin/02-certificates-keystore.png)
+
 The files must be at the same path on every server that runs GZAC. GZAC reads them on the first call, not when saving:
 a wrong path or password shows up as an error on that call, naming the field. A replaced file is picked up on the next
 call. The passwords are not shown again after saving; when editing, leave them empty to keep the stored ones as long
@@ -134,9 +138,14 @@ certificate is still reached.
 To stop using certificates, turn the toggle off and save. The certificates are removed. Stored private keys and
 passwords stay saved but are no longer used.
 
-When saving, GZAC checks the configuration and shows which field is wrong, for example when the private key does not
-belong to the client certificate, when a field does not contain a valid certificate, when a required field is empty, or
-when both PEM and keystore fields are filled in.
+**Save configuration** stays disabled until the configuration is complete: required fields filled in (fields with
+only spaces count as empty), a token endpoint that is an `http(s)://` URL, a valid header name, certificates and a
+private key in PEM format (with their line breaks), and a password for every keystore path. Fields marked
+*(required)* are the ones still needed. Spaces around values that aren't secret are removed when saving.
+
+When saving, GZAC also checks what the screen can't, such as whether the private key belongs to the client
+certificate. If it refuses, the screen shows a general error ("An unexpected error occurred"); the application log
+names the field.
 
 ### Using it in a ZGW API plugin
 
