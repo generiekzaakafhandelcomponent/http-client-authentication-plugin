@@ -158,6 +158,9 @@ abstract class HttpClientAuthenticationPluginBase(
         if (missing.isNotEmpty()) {
             return "Authentication type $authenticationType requires the properties: ${missing.joinToString()}"
         }
+        if (authenticationType == AuthenticationType.HEADER && !HEADER_NAME.matches(authHeaderName!!)) {
+            return "Property 'authHeaderName' is not a valid header name"
+        }
         if (authenticationType == AuthenticationType.ZGW_JWT && authSecret!!.length < ZgwJwt.MINIMUM_SECRET_LENGTH) {
             return "Property 'authSecret' must be at least ${ZgwJwt.MINIMUM_SECRET_LENGTH} characters " +
                 "for authentication type $authenticationType"
@@ -195,6 +198,9 @@ abstract class HttpClientAuthenticationPluginBase(
         )
 
     companion object {
+        // An HTTP token (RFC 9110)
+        private val HEADER_NAME = Regex("[!#$%&'*+.^_`|~0-9A-Za-z-]+")
+
         const val PLUGIN_KEY = "http-client-authentication"
         const val PLUGIN_TITLE = "Http Client Authentication"
         const val PLUGIN_DESCRIPTION =

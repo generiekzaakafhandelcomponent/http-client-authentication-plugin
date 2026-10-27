@@ -84,6 +84,45 @@ describe('HttpClientAuthenticationPluginConfigurationComponent', () => {
         expect(isValid({authenticationType: 'NONE'})).toBeTrue();
     });
 
+    it('treats whitespace as empty and checks the token endpoint, header name and certificates', () => {
+        expect(isValid({configurationTitle: '   ', authenticationType: 'NONE'})).toBeFalse();
+        expect(isValid({authenticationType: 'TOKEN', authSecret: '   '})).toBeFalse();
+        expect(isValid({authenticationType: 'HEADER', authHeaderName: '   ', authSecret: 'secret'})).toBeFalse();
+        expect(isValid({authenticationType: 'HEADER', authHeaderName: 'Bad Header: Name', authSecret: 'secret'})).toBeFalse();
+        expect(isValid({authenticationType: 'ZGW_JWT', clientId: '   ', authSecret: clientSecret})).toBeFalse();
+        expect(isValid({authenticationType: 'ZGW_JWT', clientId: 'valtimo_client', authSecret: ' '.repeat(32)})).toBeFalse();
+        expect(isValid({authenticationType: 'TOKEN_EXCHANGE', ...tokenExchange, tokenEndpoint: 'not a url'})).toBeFalse();
+        expect(isValid({authenticationType: 'TOKEN_EXCHANGE', ...tokenExchange, audience: '   '})).toBeFalse();
+
+        component.tlsEnabledChange(true);
+        expect(isValid({authenticationType: 'NONE', clientCertificate: 'hello', clientPrivateKey: privateKey})).toBeFalse();
+        expect(isValid({authenticationType: 'NONE', clientCertificate: `${certificate}\n${privateKey}`, clientPrivateKey: privateKey}))
+            .toBeFalse();
+        expect(isValid({authenticationType: 'NONE', clientCertificate: certificate, clientPrivateKey: certificate})).toBeFalse();
+        expect(isValid({authenticationType: 'NONE', serverCertificate: privateKey})).toBeFalse();
+        expect(isValid({authenticationType: 'NONE', clientCertificate: certificate, clientPrivateKey: privateKey})).toBeTrue();
+    });
+
+    it('saves blank values empty, so Valtimo keeps a stored secret', () => {
+        create({authenticationType: 'TOKEN'});
+        const emitted: HttpClientAuthenticationPluginConfig[] = [];
+        component.configuration.subscribe(configuration => emitted.push(configuration));
+
+        isValid({authenticationType: 'TOKEN', authSecret: '   '});
+        save$.next();
+
+        expect(emitted.map(configuration => configuration.authSecret)).toEqual(['']);
+    });
+
+    it('requires a secret unless the stored authentication type is kept', () => {
+        expect(component.secretRequired('BEARER')).toBeTrue();
+
+        create({authenticationType: 'TOKEN'});
+
+        expect(component.secretRequired('TOKEN')).toBeFalse();
+        expect(component.secretRequired('TOKEN_EXCHANGE')).toBeTrue();
+    });
+
     it('keeps the stored token exchange client secret while the type is unchanged', () => {
         create({authenticationType: 'TOKEN_EXCHANGE', tokenEndpoint: tokenExchange.tokenEndpoint});
 

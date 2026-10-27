@@ -68,7 +68,7 @@
                     [fullWidth]="true"
                     [defaultValue]="obs.prefill?.authSecret"
                     [disabled]="obs.disabled"
-                    [required]="false"
+                    [required]="secretRequired((selectedAuthType$|async).value)"
             >
             </v-input>
         </ng-container>
@@ -93,7 +93,7 @@
                     [fullWidth]="true"
                     [defaultValue]="obs.prefill?.authSecret"
                     [disabled]="obs.disabled"
-                    [required]="!obs.prefill"
+                    [required]="secretRequired((selectedAuthType$|async).value)"
             >
             </v-input>
         </ng-container>
@@ -128,7 +128,7 @@
                     [margin]="true"
                     [fullWidth]="true"
                     [disabled]="obs.disabled"
-                    [required]="!obs.prefill"
+                    [required]="secretRequired((selectedAuthType$|async).value)"
             >
             </v-input>
             <v-input
