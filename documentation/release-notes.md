@@ -10,7 +10,7 @@ Compatibel met Valtimo 13.
   `http-client-authentication`, dezelfde key als de Valtimo 12 versies, en de titel naar "Http Client Authentication".
   Bestaande configuraties gaan bij het opstarten mee naar de nieuwe key. `*.pluginconfig.json` bestanden moeten de
   nieuwe key gebruiken (met dezelfde ids). Zie [Upgrading to 3.0.0](plugin.md#upgrading-to-300).
-- Een upgrade van Valtimo 12 (`2.2.0-V12`) naar Valtimo 13 behoudt de configuraties.
+- Een upgrade van Valtimo 12 (elke `-V12` versie) naar Valtimo 13 behoudt de configuraties.
 
 ## 2.1.0
 
