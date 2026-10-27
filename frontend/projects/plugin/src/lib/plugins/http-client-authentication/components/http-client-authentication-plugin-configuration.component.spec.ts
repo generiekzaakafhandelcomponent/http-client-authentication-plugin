@@ -103,6 +103,48 @@ describe('HttpClientAuthenticationPluginConfigurationComponent', () => {
         expect(isValid({authenticationType: 'NONE', clientCertificate: certificate, clientPrivateKey: privateKey})).toBeTrue();
     });
 
+    it('refuses PEM without its line breaks and more than one private key, and accepts any case of https', () => {
+        expect(isValid({authenticationType: 'TOKEN_EXCHANGE', ...tokenExchange, tokenEndpoint: 'HTTPS://KEYCLOAK.EXAMPLE.COM/token'}))
+            .toBeTrue();
+        expect(isValid({authenticationType: 'TOKEN_EXCHANGE', ...tokenExchange, tokenEndpoint: 'https://:80/token'})).toBeFalse();
+
+        component.tlsEnabledChange(true);
+        const oneLine = (pem: string) => pem.replace(/\n/g, ' ');
+        expect(isValid({authenticationType: 'NONE', clientCertificate: oneLine(certificate), clientPrivateKey: privateKey})).toBeFalse();
+        expect(isValid({authenticationType: 'NONE', clientCertificate: certificate, clientPrivateKey: oneLine(privateKey)})).toBeFalse();
+        expect(isValid({authenticationType: 'NONE', clientCertificate: certificate, clientPrivateKey: `${privateKey}\n${privateKey}`}))
+            .toBeFalse();
+        expect(isValid({authenticationType: 'NONE', clientCertificate: certificate.replace(/\n/g, '\r\n'), clientPrivateKey: privateKey}))
+            .toBeTrue();
+    });
+
+    it('trims what isn\'t secret on save', () => {
+        const emitted: HttpClientAuthenticationPluginConfig[] = [];
+        component.configuration.subscribe(configuration => emitted.push(configuration));
+
+        isValid({authenticationType: 'HEADER', authHeaderName: ' X-Api-Key ', authSecret: ' secret with spaces '});
+        save$.next();
+
+        expect(emitted[0].authHeaderName).toBe('X-Api-Key');
+        expect(emitted[0].authSecret).toBe(' secret with spaces ');
+    });
+
+    it('marks the private key and the store passwords required once they are needed', () => {
+        component.tlsEnabledChange(true);
+        isValid({authenticationType: 'NONE', clientCertificate: certificate});
+        expect(component.privateKeyRequired).toBeTrue();
+
+        component.tlsSourceChange('KEYSTORE');
+        isValid({authenticationType: 'NONE', keystorePath: '/certs/client.p12', truststorePath: '/certs/trust.p12'});
+        expect(component.keystoreSecretRequired).toBeTrue();
+        expect(component.truststoreSecretRequired).toBeTrue();
+
+        create({authenticationType: 'NONE', clientCertificate: certificate, keystorePath: '/certs/client.p12'});
+        isValid({authenticationType: 'NONE', clientCertificate: certificate, keystorePath: '/certs/client.p12'});
+        expect(component.privateKeyRequired).toBeFalse();
+        expect(component.keystoreSecretRequired).toBeFalse();
+    });
+
     it('saves blank values empty, so Valtimo keeps a stored secret', () => {
         create({authenticationType: 'TOKEN'});
         const emitted: HttpClientAuthenticationPluginConfig[] = [];
