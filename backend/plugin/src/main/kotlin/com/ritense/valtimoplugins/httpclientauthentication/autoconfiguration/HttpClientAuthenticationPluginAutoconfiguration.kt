@@ -3,6 +3,7 @@ package com.ritense.valtimoplugins.httpclientauthentication.autoconfiguration
 import com.ritense.plugin.repository.PluginDefinitionRepository
 import com.ritense.plugin.service.PluginService
 import com.ritense.valtimo.contract.client.ValtimoHttpRestClientConfigurationProperties
+import com.ritense.valtimo.contract.config.LiquibaseMasterChangeLogLocation
 import com.ritense.valtimoplugins.httpclientauthentication.plugin.HttpClientAuthenticationPluginFactory
 import com.ritense.valtimoplugins.httpclientauthentication.tls.TlsRequestFactoryCache
 import com.ritense.valtimoplugins.httpclientauthentication.tokenexchange.TokenExchangeClient
@@ -35,6 +36,11 @@ class HttpClientAuthenticationPluginAutoconfiguration {
     fun httpClientAuthenticationTokenExchangeTokenCache(
         tokenExchangeClient: TokenExchangeClient,
     ): TokenExchangeTokenCache = TokenExchangeTokenCache(tokenExchangeClient)
+
+    // Moves configurations of the old key http-client-authentication-plugin; after Valtimo's own changelogs (no order)
+    @Bean
+    fun httpClientAuthenticationLiquibaseChangeLogLocation(): LiquibaseMasterChangeLogLocation =
+        LiquibaseMasterChangeLogLocation("config/liquibase/http-client-authentication-master.xml")
 
     @Bean
     @ConditionalOnMissingBean(PluginVariantCheck::class)

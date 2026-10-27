@@ -2,7 +2,7 @@
     {
         "id": "7c0b1a52-4f0e-4c55-9a0e-6f3e7e2a1d01",
         "title": "Objects API Authentication via mTLS gateway (Autodeployed)",
-        "pluginDefinitionKey": "http-client-authentication-plugin",
+        "pluginDefinitionKey": "http-client-authentication",
         "properties": {
             "authenticationType": "TOKEN",
             "authSecret": "182c13e2209161852c53cef53a879f7a2f923430",
@@ -23,7 +23,7 @@
     {
         "id": "7c0b1a52-4f0e-4c55-9a0e-6f3e7e2a1d03",
         "title": "Open Zaak Authentication via mTLS gateway (Autodeployed)",
-        "pluginDefinitionKey": "http-client-authentication-plugin",
+        "pluginDefinitionKey": "http-client-authentication",
         "properties": {
             "authenticationType": "ZGW_JWT",
             "clientId": "valtimo_client",
@@ -65,7 +65,7 @@
     {
         "id": "7c0b1a52-4f0e-4c55-9a0e-6f3e7e2a1d06",
         "title": "Open Notificaties Authentication via mTLS gateway (Autodeployed)",
-        "pluginDefinitionKey": "http-client-authentication-plugin",
+        "pluginDefinitionKey": "http-client-authentication",
         "properties": {
             "authenticationType": "ZGW_JWT",
             "clientId": "valtimo",
@@ -88,7 +88,7 @@
     {
         "id": "7c0b1a52-4f0e-4c55-9a0e-6f3e7e2a1d09",
         "title": "Objecttypes API Authentication via mTLS gateway (Autodeployed)",
-        "pluginDefinitionKey": "http-client-authentication-plugin",
+        "pluginDefinitionKey": "http-client-authentication",
         "properties": {
             "authenticationType": "TOKEN",
             "authSecret": "cd63e158f3aca276ef284e3033d020a22899c728",

@@ -67,7 +67,7 @@ tls = {
 config_file = pathlib.Path(sys.argv[2])
 configs = json.loads(config_file.read_text())
 for config in configs:
-    if config["pluginDefinitionKey"] == "http-client-authentication-plugin":
+    if config["pluginDefinitionKey"] == "http-client-authentication":
         config["properties"].update(tls)
 config_file.write_text(json.dumps(configs, indent=4) + "\n")
 EOF

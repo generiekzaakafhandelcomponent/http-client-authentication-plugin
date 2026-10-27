@@ -1,0 +1,79 @@
+<?xml version="1.1" encoding="UTF-8" standalone="no"?>
+<!--
+  ~ Copyright 2015-2026 Ritense BV, the Netherlands.
+  ~
+  ~ Licensed under EUPL, Version 1.2 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~ https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" basis,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+  -->
+
+<!--
+  The plugin used the key http-client-authentication-plugin before (Valtimo 12: 2.1.0-V12 and the Plugins repository's
+  1.0.0; Valtimo 13: 2.x). Moves the configurations of that key to http-client-authentication.
+
+  Runs on every start and only does something while the old key exists, so a database that gets old-key configurations
+  later is still migrated; every step can run again. Valtimo deploys the definition itself after Liquibase. This file is
+  the same on the Valtimo 12 and Valtimo 13 lines.
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="1" author="Ritense" runAlways="true" runOnChange="true">
+        <preConditions onFail="CONTINUE">
+            <sqlCheck expectedResult="1">
+                SELECT COUNT(*) FROM plugin_definition WHERE plugin_definition_key = 'http-client-authentication-plugin'
+            </sqlCheck>
+        </preConditions>
+
+        <!-- The new key may exist already, e.g. when 2.1.1-V12 was installed after 2.1.0-V12 -->
+        <sql>
+            INSERT INTO plugin_definition (plugin_definition_key, title, description, class_name)
+            SELECT 'http-client-authentication', title, description, class_name
+            FROM plugin_definition
+            WHERE plugin_definition_key = 'http-client-authentication-plugin'
+            AND NOT EXISTS (
+                SELECT 1 FROM plugin_definition WHERE plugin_definition_key = 'http-client-authentication'
+            )
+        </sql>
+        <sql>
+            INSERT INTO plugin_property (plugin_property_key, plugin_definition_key, title, required, secret, field_name, field_type)
+            SELECT old_property.plugin_property_key, 'http-client-authentication', old_property.title, old_property.required,
+                old_property.secret, old_property.field_name, old_property.field_type
+            FROM plugin_property old_property
+            WHERE old_property.plugin_definition_key = 'http-client-authentication-plugin'
+            AND NOT EXISTS (
+                SELECT 1 FROM plugin_property new_property
+                WHERE new_property.plugin_definition_key = 'http-client-authentication'
+                AND new_property.plugin_property_key = old_property.plugin_property_key
+            )
+        </sql>
+        <sql>
+            INSERT INTO plugin_definition_category (plugin_definition_key, plugin_category_key)
+            SELECT 'http-client-authentication', old_category.plugin_category_key
+            FROM plugin_definition_category old_category
+            WHERE old_category.plugin_definition_key = 'http-client-authentication-plugin'
+            AND NOT EXISTS (
+                SELECT 1 FROM plugin_definition_category new_category
+                WHERE new_category.plugin_definition_key = 'http-client-authentication'
+                AND new_category.plugin_category_key = old_category.plugin_category_key
+            )
+        </sql>
+        <sql>
+            UPDATE plugin_configuration SET plugin_definition_key = 'http-client-authentication'
+            WHERE plugin_definition_key = 'http-client-authentication-plugin'
+        </sql>
+        <sql>DELETE FROM plugin_property WHERE plugin_definition_key = 'http-client-authentication-plugin'</sql>
+        <sql>DELETE FROM plugin_definition_category WHERE plugin_definition_key = 'http-client-authentication-plugin'</sql>
+        <sql>DELETE FROM plugin_definition WHERE plugin_definition_key = 'http-client-authentication-plugin'</sql>
+    </changeSet>
+
+</databaseChangeLog>

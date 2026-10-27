@@ -45,7 +45,7 @@ describe('HttpClientAuthenticationPluginConfigurationComponent', () => {
         validValues = [];
         component.save$ = save$;
         component.disabled$ = of(false);
-        component.pluginId = 'http-client-authentication-plugin';
+        component.pluginId = 'http-client-authentication';
         component.prefillConfiguration$ = of(prefill as HttpClientAuthenticationPluginConfig);
         component.valid.subscribe(valid => validValues.push(valid));
         component.ngOnInit();
@@ -59,6 +59,10 @@ describe('HttpClientAuthenticationPluginConfigurationComponent', () => {
     beforeEach(() => create());
 
     afterEach(() => component.ngOnDestroy());
+
+    it('registers the screen under the backend plugin key', () => {
+        expect(httpClientAuthenticationPluginSpecification.pluginId).toBe('http-client-authentication');
+    });
 
     it('offers every authentication type', () => {
         expect(component.authenticationTypeOptions.map(option => option.value))
@@ -358,7 +362,7 @@ describe('HttpClientAuthenticationPluginConfigurationComponent screen', () => {
         const fixture = TestBed.createComponent(HttpClientAuthenticationPluginConfigurationComponent);
         fixture.componentInstance.save$ = new Subject<void>();
         fixture.componentInstance.disabled$ = disabled$;
-        fixture.componentInstance.pluginId = 'http-client-authentication-plugin';
+        fixture.componentInstance.pluginId = 'http-client-authentication';
         fixture.componentInstance.prefillConfiguration$ = prefill$ as Observable<HttpClientAuthenticationPluginConfig>;
         fixture.detectChanges();
         return fixture;

@@ -211,8 +211,8 @@ abstract class HttpClientAuthenticationPluginBase(
         // An HTTP token (RFC 9110)
         private val HEADER_NAME = Regex("[!#$%&'*+.^_`|~0-9A-Za-z-]+")
 
-        const val PLUGIN_KEY = "http-client-authentication-plugin"
-        const val PLUGIN_TITLE = "Http Client Authentication Plugin"
+        const val PLUGIN_KEY = "http-client-authentication"
+        const val PLUGIN_TITLE = "Http Client Authentication"
         const val PLUGIN_DESCRIPTION =
             "Provides authentication and mutual TLS for outbound REST clients, including the ZGW API plugins"
     }

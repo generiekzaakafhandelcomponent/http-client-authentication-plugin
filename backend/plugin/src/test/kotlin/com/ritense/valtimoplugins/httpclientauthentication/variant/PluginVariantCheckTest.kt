@@ -41,7 +41,7 @@ internal class PluginVariantCheckTest {
         val exception = assertThrows<IllegalStateException> { check(other.className).checkDeployedVariant() }
 
         assertEquals(
-            "Plugin 'http-client-authentication-plugin' is deployed with class ${other.className}, but the ZGW " +
+            "Plugin 'http-client-authentication' is deployed with class ${other.className}, but the ZGW " +
                 "modules on the classpath need ${variant.className}. Of " +
                 "valtimoplugins.httpclientauthentication.variant, Valtimo may only scan ${variant.packageName}: " +
                 "check valtimo.annotation-scan.accepted-packages and the package of the @SpringBootApplication class.",
