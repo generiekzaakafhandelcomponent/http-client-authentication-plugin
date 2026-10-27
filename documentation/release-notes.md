@@ -37,8 +37,8 @@ Compatibel met Valtimo 13, met ondersteuning voor Valtimo 13.51.0.
   `HttpClientAuthenticationPlugin` moet `HttpClientAuthenticator` of de plugin key gebruiken. Draai niet tegelijk
   nodes met `2.0.x` en `2.1.0` tegen dezelfde database (geen rolling upgrade).
 - **Van Valtimo 12:** de Valtimo 12 versies gebruiken de key `http-client-authentication`, deze versie nog
-  `http-client-authentication-plugin`. Ga bij een upgrade van Valtimo 12 naar `3.0.0`, dat de key overneemt en
-  bestaande configuraties meeneemt.
+  `http-client-authentication-plugin`. De configuraties van Valtimo 12 werken dus niet met deze versie;
+  de versie die de key overneemt en bestaande configuraties meeneemt, is gepland als `3.0.0`.
 - **Logging:** Valtimo logt request bodies op DEBUG (`LoggingRestClientCustomizer`). Bij token exchange staat daarin
   het client secret; zet die logging niet aan in productie.
 
