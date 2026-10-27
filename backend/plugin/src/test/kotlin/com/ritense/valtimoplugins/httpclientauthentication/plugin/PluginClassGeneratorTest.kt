@@ -23,6 +23,7 @@ import com.ritense.valtimoplugins.haalcentraalauth.HaalCentraalAuthentication
 import com.ritense.valtimoplugins.httpclientauthentication.HttpClientAuthenticator
 import com.ritense.valtimoplugins.httpclientauthentication.model.AuthenticationType
 import org.junit.jupiter.api.Test
+import org.springframework.util.ClassUtils
 import java.lang.invoke.MethodHandles
 import java.lang.reflect.Modifier
 import java.util.concurrent.atomic.AtomicInteger
@@ -34,7 +35,11 @@ import kotlin.test.assertTrue
 import com.ritense.valtimoplugins.haalcentraalauthenticationplugin.HaalCentraalAuthentication as HaalCentraalSamlAuthentication
 
 internal class PluginClassGeneratorTest {
-    private val coveredInterfaces = CoveredInterfaces.ALL.map { Class.forName(it.implementedBy) }
+    // Those of this Valtimo version
+    private val coveredInterfaces =
+        CoveredInterfaces.ALL
+            .filter { ClassUtils.isPresent(it.interfaceName, null) }
+            .map { Class.forName(it.implementedBy) }
 
     @Test
     fun `should generate a working plugin class for no covered interface, each alone and all together`() {

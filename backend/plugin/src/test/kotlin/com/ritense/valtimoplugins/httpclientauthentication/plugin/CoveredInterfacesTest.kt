@@ -49,6 +49,10 @@ internal class CoveredInterfacesTest {
 
     @Test
     fun `should name existing support interfaces`() {
-        CoveredInterfaces.ALL.forEach { Class.forName(it.implementedBy) }
+        CoveredInterfaces.ALL.filter { it.implementedBy != it.interfaceName }.forEach {
+            Class.forName(
+                it.implementedBy,
+            )
+        }
     }
 }
