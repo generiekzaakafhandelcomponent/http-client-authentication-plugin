@@ -29,19 +29,26 @@ const KEYSTORE_FIELDS = ['keystorePath', 'keystoreSecret', 'truststorePath', 'tr
 
 // Checked here because Valtimo shows a refusal by the backend only as a generic error
 const HEADER_NAME = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
-const HTTP_URL = /^https?:\/\/[^\s/?#]+[^\s]*$/;
+const HTTP_URL = /^https?:\/\/[^\s/?#:]+[^\s]*$/i;
+
+// Not secret, so trimmed on save; a secret is kept as typed
+const TRIMMED_FIELDS = [
+    'configurationTitle', 'authHeaderName', 'clientId', 'tokenEndpoint', 'audience', 'scope',
+    'clientCertificate', 'serverCertificate', 'keystorePath', 'truststorePath',
+];
 
 function filled(value: string | null | undefined): boolean {
     return !!value?.trim();
 }
 
+// PEM needs its line breaks: a header line, then the base64 lines, then the footer line
 function isCertificate(text: string): boolean {
-    return text.includes('-----BEGIN CERTIFICATE-----') && text.includes('-----END CERTIFICATE-----')
+    return /-----BEGIN CERTIFICATE-----\r?\n[\s\S]+\r?\n\s*-----END CERTIFICATE-----/.test(text)
         && !text.includes('PRIVATE KEY-----');
 }
 
 function isUnencryptedPrivateKey(text: string): boolean {
-    return /-----BEGIN [A-Z ]*PRIVATE KEY-----/.test(text) && !text.includes('ENCRYPTED');
+    return (text.match(/-----BEGIN [A-Z ]*PRIVATE KEY-----\r?\n/g) ?? []).length === 1 && !text.includes('ENCRYPTED');
 }
 
 @Component({
@@ -104,6 +111,11 @@ export class HttpClientAuthenticationPluginConfigurationComponent
 
     // Frontend-only switch: the certificate fields are shown, validated and saved only while it is on
     readonly tlsEnabled$ = new BehaviorSubject<boolean>(false);
+
+    // Secrets that become required by what is filled in, for their required marker
+    privateKeyRequired = false;
+    keystoreSecretRequired = false;
+    truststoreSecretRequired = false;
 
     // Frontend-only choice: only the fields of the chosen source are shown, validated and saved
     readonly tlsSource$ = new BehaviorSubject<TlsSource>('PEM');
@@ -171,6 +183,11 @@ export class HttpClientAuthenticationPluginConfigurationComponent
     }
 
     private handleValid(formValue: HttpClientAuthenticationPluginConfig): void {
+        const clientCertificate = formValue.clientCertificate?.trim() ?? '';
+        this.privateKeyRequired = !!clientCertificate && clientCertificate !== this.prefilledClientCertificate;
+        this.keystoreSecretRequired = this.storeSecretRequired(formValue.keystorePath, this.prefilledKeystorePath);
+        this.truststoreSecretRequired = this.storeSecretRequired(formValue.truststorePath, this.prefilledTruststorePath);
+
         const valid = filled(formValue.configurationTitle)
             && this.authenticationValid(formValue)
             && (!this.tlsEnabled$.getValue() || this.certificatesValid(formValue));
@@ -222,8 +239,12 @@ export class HttpClientAuthenticationPluginConfigurationComponent
     }
 
     private storeValid(path: string | undefined, secret: string | undefined, prefilledPath: string): boolean {
+        return !this.storeSecretRequired(path, prefilledPath) || filled(secret);
+    }
+
+    private storeSecretRequired(path: string | undefined, prefilledPath: string): boolean {
         const trimmedPath = path?.trim() ?? '';
-        return !trimmedPath || filled(secret) || trimmedPath === prefilledPath;
+        return !!trimmedPath && trimmedPath !== prefilledPath;
     }
 
     // Leaving a field out of the saved configuration clears it; a stored secret stays, but is ignored without its field
@@ -235,8 +256,15 @@ export class HttpClientAuthenticationPluginConfigurationComponent
         return Object.fromEntries(
             Object.entries(configuration)
                 .filter(([field]) => !inactiveFields.includes(field))
-                .map(([field, value]) => [field, typeof value === 'string' && !value.trim() ? '' : value])
+                .map(([field, value]) => [field, typeof value === 'string' ? this.savedValue(field, value) : value])
         ) as HttpClientAuthenticationPluginConfig;
+    }
+
+    private savedValue(field: string, value: string): string {
+        if (!value.trim()) {
+            return '';
+        }
+        return TRIMMED_FIELDS.includes(field) ? value.trim() : value;
     }
 
     private openSaveSubscription(): void {

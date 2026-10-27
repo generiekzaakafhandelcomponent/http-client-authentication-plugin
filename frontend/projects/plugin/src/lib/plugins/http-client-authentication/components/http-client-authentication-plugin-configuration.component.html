@@ -55,7 +55,7 @@
                     [fullWidth]="true"
                     [defaultValue]="obs.prefill?.authHeaderName"
                     [disabled]="obs.disabled"
-                    [required]="false"
+                    [required]="true"
             >
             </v-input>
         </ng-container>
@@ -206,7 +206,7 @@
                     [margin]="true"
                     [fullWidth]="true"
                     [disabled]="obs.disabled"
-                    [required]="false"
+                    [required]="privateKeyRequired"
             >
             </v-input>
             <v-input
@@ -245,7 +245,7 @@
                     [margin]="true"
                     [fullWidth]="true"
                     [disabled]="obs.disabled"
-                    [required]="false"
+                    [required]="keystoreSecretRequired"
             >
             </v-input>
             <v-input
@@ -267,7 +267,7 @@
                     [margin]="true"
                     [fullWidth]="true"
                     [disabled]="obs.disabled"
-                    [required]="false"
+                    [required]="truststoreSecretRequired"
             >
             </v-input>
         </ng-container>
