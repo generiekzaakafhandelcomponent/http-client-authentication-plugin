@@ -937,6 +937,19 @@ internal class HttpClientAuthenticationPluginTest {
         assertFalse(requestFactories.firstValue === requestFactories.secondValue)
     }
 
+    @Test
+    fun `should refuse a header name that is not a valid HTTP header name`() {
+        val plugin =
+            plugin(AuthenticationType.HEADER) {
+                authHeaderName = "Bad Header: Name"
+                authSecret = "secret"
+            }
+
+        val exception = assertThrows<IllegalArgumentException> { plugin.validateConfiguration() }
+
+        assertEquals("Property 'authHeaderName' is not a valid header name", exception.message)
+    }
+
     private fun tokenExchangePlugin(
         tokenCache: TokenExchangeTokenCache,
         cache: TlsRequestFactoryCache = TlsRequestFactoryCache(restClientProperties),
