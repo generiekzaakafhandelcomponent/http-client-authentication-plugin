@@ -16,6 +16,9 @@ Built from the GZAC plugin template.
 | 13.x    | `main` | `2.1.0`         | `2.1.0`          | 21   | 19      |
 | 12.x    | `v12`  | `2.2.1-V12`     | `2.2.1-V12`      | 17   | 17      |
 
+The plugin key is `http-client-authentication` on Valtimo 12 and still `http-client-authentication-plugin` in `2.1.0`
+for Valtimo 13; see the [release notes](documentation/release-notes.md) before upgrading from Valtimo 12 to 13.
+
 ## Getting started
 
 Follow the [Getting Started](documentation/getting-started.md) guide for setup and development instructions.

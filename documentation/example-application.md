@@ -4,11 +4,12 @@ This project also contains a working example application which is meant to showc
 
 ## Running the example application
 
-All commands below should be run from the **project root** directory.
+Run the commands below from the **project root** directory, except the frontend ones (from `frontend`).
 
 ### Prerequisites
 
 - Java 17
+- Node.js 20 (for example with [nvm](https://github.com/nvm-sh/nvm))
 - [Docker (Desktop)](https://www.docker.com/products/docker-desktop/)
 
 ### Start docker
@@ -32,6 +33,7 @@ By gradle script:
 ### Start frontend
 
 ```shell
+cd frontend
 nvm use 20
 npm run clean
 npm install
@@ -49,11 +51,20 @@ The example application has a few test users that are preconfigured.
 | Asha Miller  | ROLE_ADMIN     | admin     | admin     |
 | Morgan Finch | ROLE_DEVELOPER | developer | developer |
 
+### Example configurations
+
+The example application autodeploys a configuration of every simple type
+([http-client-authentication.pluginconfig.json](/backend/app/src/main/resources/config/plugin/http-client-authentication.pluginconfig.json)):
+*Http Client Authentication - None*, *- Bearer*, *- Header* and *- Token exchange*. They show the properties of each
+type. *Token exchange* is a placeholder: the sandbox Keycloak has no client set up for token exchange, so a call with it
+fails with `401 Unauthorized`.
+
 ## Testing mutual TLS with the mTLS gateway
 
 The docker compose setup contains `mtls-gateway`, an nginx gateway that only lets requests through when they present a
 client certificate signed by the sandbox CA, like the gateway in front of the ZGW APIs at a municipality. It starts with
-the `zgw` profile (the default for `composeUp`/`bootRun`), or on its own with `--profile mtls`. In this example the
+the `zgw` profile, the default for `composeUp`/`bootRun` (the `mtls` profile starts only the gateway, without the
+APIs behind it). In this example the
 Objecten API is behind it, at `https://127.0.0.1:8443`.
 
 The example application autodeploys
@@ -68,7 +79,12 @@ The object management configuration *Bomen via mTLS gateway*
 ([boom-mtls-gateway.json](/backend/app/src/main/resources/config/objectmanagement/boom-mtls-gateway.json)) reads the
 Boom objects through the gateway, so **Objects → Bomen via mTLS gateway** lists them only because the configuration
 presents the client certificate. Remove the certificates from *Objects API Authentication via mTLS gateway* (turn off
-**Certificates (mutual TLS)** and save) and the list stays empty; the gateway logs the refused calls.
+**Certificates (mutual TLS)** and save) and the list stays empty: without the sandbox CA as server certificate, GZAC
+doesn't trust the gateway, which logs a failed handshake. To see the gateway refuse GZAC instead
+(`400 No required SSL certificate was sent`), clear only the client certificate and its private key. To undo this,
+turn the certificates on again and paste `client.pem`, `client-key.pem` and `ca.pem` from
+[imports/mtls-gateway/certs](/backend/app/imports/mtls-gateway/certs), or restart the backend, which autodeploys the
+configuration again.
 
 The gateway logs every request with the client certificate it received and the authentication scheme (never the
 secret):
@@ -93,7 +109,12 @@ The certificates in [imports/mtls-gateway/certs](/backend/app/imports/mtls-gatew
 (`8445`) and the Objecttypen API (`8447`), which this example doesn't use.
 
 Autodeployment adds and updates configurations but never removes them: a sandbox database from an earlier version of
-this example may still hold configurations that the files no longer contain. Remove the docker volumes to start clean.
+this example may still hold configurations that the files no longer contain. Delete those under
+**Admin > Configuration > Plugins**.
+
+The docker compose project of this example (`gzac-docker-compose`, containers `plugin-docker-compose-*`) has the same
+name as in other plugin repositories built from the same template. Stop another repository's example application
+before you start this one: `composeUp` would otherwise recreate its containers.
 
 ## Source code
 

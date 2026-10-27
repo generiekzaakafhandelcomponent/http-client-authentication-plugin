@@ -42,13 +42,15 @@ Compatibel met Valtimo 12. Bevat dezelfde functies als `2.1.0` voor Valtimo 13, 
 - **Andere klasse:** de plugin-klasse is nu per applicatie gegenereerd. Code die de plugin opzoekt via de klasse
   `HttpClientAuthenticationPlugin` of `MtlsContextFactory` gebruikt moet `HttpClientAuthenticator` of de plugin key
   gebruiken. Stop alle nodes voor de upgrade (geen rolling upgrade).
-- **npm:** gebruik de exacte versie `2.2.0-V12`; een range als `^2.2.0-V12` matcht ook Valtimo 13 versies. `-V12`
+- **npm:** gebruik de exacte versie (`2.2.1-V12`; de frontend van `2.2.0-V12` is niet gepubliceerd); een range als
+  `^2.2.1-V12` matcht ook Valtimo 13 versies. `-V12`
   versies krijgen voortaan de npm tag `valtimo-12`, niet `latest`.
 - **Logging:** alle interceptors zien nu de credentials, en Valtimo logt request bodies op DEBUG
   (`LoggingRestClientCustomizer`), bij token exchange inclusief het client secret. De Socrates plugin logt request
   headers op DEBUG. Zet die logging niet aan in productie.
-- **Van Valtimo 12 naar 13:** ga naar `3.0.0` (key `http-client-authentication`), niet naar `2.1.0`, dat de oude key
-  nog gebruikt.
+- **Van Valtimo 12 naar 13:** `2.1.0` voor Valtimo 13 gebruikt nog de oude key `http-client-authentication-plugin`,
+  dus de configuraties van deze versie werken daar niet. Gebruik op Valtimo 13 de versie die de key
+  `http-client-authentication` overneemt (gepland als `3.0.0`).
 
 ## 2.1.1-V12
 

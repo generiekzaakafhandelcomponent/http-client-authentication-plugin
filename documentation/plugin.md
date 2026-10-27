@@ -8,8 +8,7 @@ requires it, the certificates for a secure connection (mutual TLS).
 
 You can select a configuration of this plugin as the authentication of the ZGW API plugins: Zaken API, Documenten API,
 Catalogi API, Besluiten API, Notificaties API, Objecten API and Objecttypen API. Haal Centraal and Socrates (Plugins
-repository) use it as well. Other plugins
-that call an external API can use it as well.
+repository) use it too, and so can other plugins that call an external API.
 
 ## Installation
 
@@ -72,7 +71,8 @@ import {
 
 ## Configuring the plugin
 
-Go to **Admin > Plugins**, click **Configure plugin** and choose **Http Client Authentication**.
+Go to **Admin > Configuration > Plugins**, click **Configure plugin**, choose **Http Client Authentication** and
+click **Enter data**.
 
 ### Authentication type
 
@@ -110,11 +110,13 @@ As **PEM**:
 
 - **Client certificate (PEM)** – the certificate GZAC presents to the API. Paste the contents of the `.pem` or `.crt`
   file, starting with `-----BEGIN CERTIFICATE-----`. Leave it empty if the API does not ask for a client certificate.
-  Don't paste the private key into this field: it is not stored encrypted, so GZAC refuses it.
+  Don't paste the private key into this field: it is not stored encrypted. If you do, **Save configuration** stays
+  disabled (the private key field below shows *(required)*).
 - **Client certificate private key (PEM)** – the private key that belongs to the client certificate, starting with
   `-----BEGIN PRIVATE KEY-----` (or `RSA PRIVATE KEY` / `EC PRIVATE KEY`). Keys protected with a password are not
-  supported. The key is not shown again after saving; when editing, leave it empty to keep the stored key.
-- **Server certificate (PEM)** – optional. The certificate (or CA certificate) of the API to trust. Fill it in when the
+  supported. The key is not shown again after saving; when editing, leave it empty to keep the stored key, as long as
+  the client certificate stays the same. A new client certificate needs its key again.
+- **Server certificate (PEM, optional)** – optional. The certificate (or CA certificate) of the API to trust. Fill it in when the
   API uses a certificate that is not publicly trusted, for example one issued by an internal CA. When it is filled in,
   only that certificate is trusted for this configuration.
 
@@ -136,16 +138,19 @@ GZAC trusts the server certificate you configured as well as the publicly truste
 certificate is still reached.
 
 To stop using certificates, turn the toggle off and save. The certificates are removed. Stored private keys and
-passwords stay saved but are no longer used.
+passwords stay saved but are no longer used: to use certificates again, fill in the certificate and its key (or the
+keystore path and its password) again.
 
 **Save configuration** stays disabled until the configuration is complete: required fields filled in (fields with
 only spaces count as empty), a token endpoint that is an `http(s)://` URL, a valid header name, certificates and a
 private key in PEM format (with their line breaks), and a password for every keystore path. Fields marked
-*(required)* are the ones still needed. Spaces around values that aren't secret are removed when saving.
+*(required)* must be filled in; a value in the wrong format is not marked, it only keeps **Save configuration**
+disabled. Spaces around values that aren't secret are removed when saving.
 
 When saving, GZAC also checks what the screen can't, such as whether the private key belongs to the client
-certificate. If it refuses, the screen shows a general error ("An unexpected error occurred"); the application log
-names the field.
+certificate. If it refuses, the screen shows a general error ("An unexpected error occurred") with a reference ID. Look that ID up
+in **Admin > Other > Logs** and open the entry: its stack trace names the property (see
+[Configuration files](#configuration-files) for the field of each property).
 
 ### Using it in a ZGW API plugin
 

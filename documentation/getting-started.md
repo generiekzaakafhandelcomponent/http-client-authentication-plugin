@@ -4,7 +4,7 @@
 
 ```kotlin
 dependencies {
-    implementation("com.ritense.valtimoplugins:http-client-authentication:2.1.1-V12")
+    implementation("com.ritense.valtimoplugins:http-client-authentication:2.2.1-V12")
 }
 ```
 
@@ -13,13 +13,13 @@ dependencies {
 ```json
 {
   "dependencies": {
-    "@valtimo-plugins/http-client-authentication": "2.1.1-V12"
+    "@valtimo-plugins/http-client-authentication": "2.2.1-V12"
   }
 }
 ```
 
-Register `HttpClientAuthenticationPluginModule` and `httpClientAuthenticationPluginSpecification` in your
-`app.module.ts` as shown in the [Plugin](plugin.md) documentation.
+Use the exact versions. Register `HttpClientAuthenticationPluginModule` and `httpClientAuthenticationPluginSpecification`
+in your `app.module.ts` as shown in the [Plugin](plugin.md#installation) documentation.
 
 ## Local development
 
