@@ -140,7 +140,8 @@ disabled. Spaces around values that aren't secret are removed when saving.
 
 When saving, GZAC also checks what the screen can't, such as whether the private key belongs to the client
 certificate. If it refuses, the screen shows a general error ("An unexpected error occurred") with a reference ID. Look that ID up
-in the application log: the entry names the field.
+in the application log: the stack trace of that entry names the property (see
+[Configuration files](#configuration-files) for the field of each property).
 
 ### Using it in a ZGW API plugin
 
