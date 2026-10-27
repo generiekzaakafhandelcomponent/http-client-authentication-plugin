@@ -7,4 +7,7 @@ enum class AuthenticationType {
     TOKEN,
     ZGW_JWT,
     TOKEN_EXCHANGE,
+    BASIC,
+    BEARER_AND_API_KEY,
+    SAML_TOKEN,
 }

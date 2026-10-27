@@ -18,36 +18,60 @@ val kotlinLoggingVersion: String by project
 val mockitoKotlinVersion: String by project
 val valtimoVersion: String by project
 val operatonVersion: String by project
+val apacheCxfVersion: String by project
 
-// Order matters: it gives the bits in the variant names, see PluginVariants
-val zgwAuthenticationInterfaces =
-    mapOf(
-        "zaken-api" to "com.ritense.zakenapi.ZakenApiAuthentication",
-        "documenten-api" to "com.ritense.documentenapi.DocumentenApiAuthentication",
-        "catalogi-api" to "com.ritense.catalogiapi.CatalogiApiAuthentication",
-        "besluiten-api" to "com.ritense.besluitenapi.BesluitenApiAuthentication",
-        "notificaties-api" to "com.ritense.notificatiesapi.NotificatiesApiAuthentication",
-        "objecten-api" to "com.ritense.objectenapi.ObjectenApiAuthentication",
-        "objecttypen-api" to "com.ritense.objecttypenapi.ObjecttypenApiAuthentication",
-        "klantinteracties-api" to "com.ritense.klantinteractiesapi.KlantinteractiesApiAuthentication",
+// The modules with a ZGW authentication interface; the application decides which it has
+val zgwModules =
+    listOf(
+        "zaken-api",
+        "documenten-api",
+        "catalogi-api",
+        "besluiten-api",
+        "notificaties-api",
+        "objecten-api",
+        "objecttypen-api",
+        "klantinteracties-api",
     )
-val zgwModules = zgwAuthenticationInterfaces.keys
 
-// Shared by the test source sets, each of which adds its own ZGW modules
+// The other auth plugins whose category interface this plugin implements, see CoveredInterfaces. Without their
+// dependencies: each brings its own plugin, and the application decides which it has
+val suwinetAuth = "com.ritense.valtimoplugins:suwinet-auth:1.1.3"
+val coveredPlugins =
+    listOf(
+        "com.ritense.valtimoplugins:haal-centraal-authentication:0.15.1",
+        "com.ritense.valtimoplugins:haal-centraal-authentication-plugin:1.0.1",
+        suwinetAuth,
+        "com.ritense.valtimoplugins:token-authentication:1.0.3",
+        "com.ritense.valtimoplugins:token-exchange-authentication:0.0.2",
+        "com.ritense.valtimoplugins:mTLS-SSLContext:2.0.6",
+    )
+
+// What the implementations of those interfaces use: SOAP (CXF) and reactor-netty
+val cxfModules =
+    listOf("org.apache.cxf:cxf-core:$apacheCxfVersion", "org.apache.cxf:cxf-rt-transports-http:$apacheCxfVersion")
+val reactorNettyModules = listOf("io.projectreactor.netty:reactor-netty-http", "io.netty:netty-handler")
+// A SOAP client for the tests, on top of cxfModules
+val cxfTestModules = listOf("org.apache.cxf:cxf-rt-frontend-jaxws:$apacheCxfVersion")
+
+// Shared by the test source sets, each of which adds its own modules
 val integrationTestCommon by configurations.creating
 
 dependencies {
     compileOnly("com.ritense.valtimo:plugin-valtimo")
     compileOnly("com.ritense.valtimo:process-document")
     compileOnly("com.ritense.valtimo:contract")
-    // Only to compile the variants: the application decides which ZGW modules it has
     zgwModules.forEach { compileOnly("com.ritense.valtimo:$it") }
+    coveredPlugins.forEach { compileOnly(it) { isTransitive = false } }
+    cxfModules.forEach { compileOnly(it) }
+    reactorNettyModules.forEach { compileOnly(it) }
     compileOnly("org.operaton.bpm:operaton-engine:$operatonVersion")
     compileOnly("org.springframework.boot:spring-boot-autoconfigure")
     compileOnly("org.springframework.boot:spring-boot-starter-web")
     compileOnly("org.springframework:spring-webflux")
     compileOnly("org.springframework.data:spring-data-jpa")
     compileOnly("org.apache.httpcomponents.client5:httpclient5")
+    // Generates the plugin class at startup; every Valtimo application has it (Hibernate)
+    compileOnly("net.bytebuddy:byte-buddy")
 
     compileOnly("io.github.oshai:kotlin-logging:$kotlinLoggingVersion")
 
@@ -66,6 +90,7 @@ dependencies {
     integrationTestCommon("org.springframework.boot:spring-boot-starter-data-jpa")
     integrationTestCommon("org.springframework.boot:spring-boot-starter-security")
     integrationTestCommon("org.springframework.boot:spring-boot-starter-test")
+    integrationTestCommon("net.bytebuddy:byte-buddy")
 
     integrationTestCommon("org.mockito:mockito-core")
     integrationTestCommon("org.mockito.kotlin:mockito-kotlin:$mockitoKotlinVersion")
@@ -76,149 +101,28 @@ dependencies {
     integrationTestCommon("org.jetbrains.kotlin:kotlin-test-junit5")
 
     zgwModules.forEach { testImplementation("com.ritense.valtimo:$it") }
+    // Every covered plugin next to this one, with what they need at runtime
+    coveredPlugins.forEach { testImplementation(it) { isTransitive = false } }
+    (cxfModules + cxfTestModules).forEach { testImplementation(it) }
+    reactorNettyModules.forEach { testImplementation(it) }
+    testImplementation("io.github.oshai:kotlin-logging:$kotlinLoggingVersion")
     // To compare the ZGW JWT with Valtimo's
     testImplementation("com.ritense.valtimo:openzaak-plugin-authentication")
 }
 
 configurations.testImplementation { extendsFrom(integrationTestCommon) }
 
-// One @Plugin class per combination of ZGW authentication interfaces, see PluginVariants
-val generatePluginVariants by tasks.registering {
-    description = "Generates the plugin class for every combination of ZGW modules."
-    val outputDirectory = layout.buildDirectory.dir("generated/sources/pluginVariants/kotlin")
-    val interfaces = zgwAuthenticationInterfaces.values.toList()
-    inputs.property("interfaces", interfaces)
-    outputs.dir(outputDirectory)
-    doLast {
-        val selectionPackage = "com.ritense.valtimoplugins.httpclientauthentication.variant"
-        val rootPackage = "valtimoplugins.httpclientauthentication.variant"
-        val className = "HttpClientAuthenticationPlugin"
-        val root = outputDirectory.get().asFile
-        root.deleteRecursively()
-
-        fun write(
-            packageName: String,
-            fileName: String,
-            content: String,
-        ) {
-            val directory = root.resolve(packageName.replace('.', '/'))
-            directory.mkdirs()
-            directory.resolve(fileName).writeText("// Generated by the generatePluginVariants task\n\n$content")
-        }
-
-        write(
-            selectionPackage,
-            "PluginVariantsGenerated.kt",
-            """
-            |package $selectionPackage
-            |
-            |internal const val VARIANTS_ROOT_PACKAGE = "$rootPackage"
-            |
-            |internal const val VARIANT_CLASS_NAME = "$className"
-            |
-            |internal val ZGW_AUTHENTICATION_INTERFACES =
-            |    listOf(
-            |${interfaces.joinToString("") { "        \"$it\",\n" }}    )
-            |
-            """.trimMargin(),
-        )
-
-        (0 until (1 shl interfaces.size)).forEach { combination ->
-            val bits = Integer.toBinaryString(combination).padStart(interfaces.size, '0')
-            val zgwSupertypes =
-                interfaces
-                    .filterIndexed { index, _ -> bits[index] == '1' }
-                    .joinToString("") { ",\n    $it" }
-            write(
-                "$rootPackage.z$bits",
-                "$className.kt",
-                """
-                |package $rootPackage.z$bits
-                |
-                |import com.ritense.plugin.annotation.Plugin
-                |import com.ritense.plugin.annotation.PluginProperty
-                |import com.ritense.plugin.domain.PluginConfigurationId
-                |import com.ritense.valtimoplugins.httpclientauthentication.model.AuthenticationType
-                |import com.ritense.valtimoplugins.httpclientauthentication.plugin.HttpClientAuthenticationPluginBase
-                |import com.ritense.valtimoplugins.httpclientauthentication.tls.TlsRequestFactoryCache
-                |import com.ritense.valtimoplugins.httpclientauthentication.tokenexchange.TokenExchangeTokenCache
-                |import java.net.URI
-                |
-                |@Plugin(
-                |    key = HttpClientAuthenticationPluginBase.PLUGIN_KEY,
-                |    title = HttpClientAuthenticationPluginBase.PLUGIN_TITLE,
-                |    description = HttpClientAuthenticationPluginBase.PLUGIN_DESCRIPTION,
-                |)
-                |class $className(
-                |    configurationId: PluginConfigurationId,
-                |    tlsRequestFactoryCache: TlsRequestFactoryCache,
-                |    tokenExchangeTokenCache: TokenExchangeTokenCache,
-                |) : HttpClientAuthenticationPluginBase(configurationId, tlsRequestFactoryCache, tokenExchangeTokenCache)$zgwSupertypes {
-                |    @PluginProperty(key = "authenticationType", secret = false, required = true)
-                |    override lateinit var authenticationType: AuthenticationType
-                |
-                |    @PluginProperty(key = "authHeaderName", secret = false, required = false)
-                |    override var authHeaderName: String? = null
-                |
-                |    @PluginProperty(key = "authSecret", secret = true, required = false)
-                |    override var authSecret: String? = null
-                |
-                |    @PluginProperty(key = "clientId", secret = false, required = false)
-                |    override var clientId: String? = null
-                |
-                |    @PluginProperty(key = "clientSecret", secret = true, required = false)
-                |    override var clientSecret: String? = null
-                |
-                |    @PluginProperty(key = "tokenEndpoint", secret = false, required = false)
-                |    override var tokenEndpoint: URI? = null
-                |
-                |    @PluginProperty(key = "audience", secret = false, required = false)
-                |    override var audience: String? = null
-                |
-                |    @PluginProperty(key = "scope", secret = false, required = false)
-                |    override var scope: String? = null
-                |
-                |    @PluginProperty(key = "clientCertificate", secret = false, required = false)
-                |    override var clientCertificate: String? = null
-                |
-                |    @PluginProperty(key = "clientPrivateKey", secret = true, required = false)
-                |    override var clientPrivateKey: String? = null
-                |
-                |    @PluginProperty(key = "serverCertificate", secret = false, required = false)
-                |    override var serverCertificate: String? = null
-                |
-                |    @PluginProperty(key = "keystorePath", secret = false, required = false)
-                |    override var keystorePath: String? = null
-                |
-                |    @PluginProperty(key = "keystoreSecret", secret = true, required = false)
-                |    override var keystoreSecret: String? = null
-                |
-                |    @PluginProperty(key = "truststorePath", secret = false, required = false)
-                |    override var truststorePath: String? = null
-                |
-                |    @PluginProperty(key = "truststoreSecret", secret = true, required = false)
-                |    override var truststoreSecret: String? = null
-                |}
-                |
-                """.trimMargin(),
-            )
-        }
-    }
-}
-
-kotlin.sourceSets.main { kotlin.srcDir(generatePluginVariants) }
-
-ktlint {
-    filter { exclude { it.file.path.contains("${File.separator}generated${File.separator}") } }
-}
+// The support interfaces implement the covered interfaces with default methods, which the generated class inherits
+kotlin { compilerOptions { freeCompilerArgs.add("-Xjvm-default=all") } }
 
 /*
- * Integration tests on the classpath of an application with other ZGW modules than the test source set, which has all.
+ * Integration tests on the classpath of an application with other modules than the test source set, which has all
+ * ZGW modules and covered plugins.
  * They reuse the test source set's base classes, fixtures and configuration.
  */
-fun zgwCombinationTest(
+fun combinationTest(
     name: String,
-    zgwModules: List<String>,
+    modules: List<String>,
 ): TaskProvider<Test> {
     val sourceSet =
         sourceSets.create(name) {
@@ -230,11 +134,11 @@ fun zgwCombinationTest(
         extendsFrom(integrationTestCommon, configurations.implementation.get())
     }
     dependencies {
-        zgwModules.forEach { add(sourceSet.implementationConfigurationName, "com.ritense.valtimo:$it") }
+        modules.forEach { add(sourceSet.implementationConfigurationName, it) }
     }
     val task =
         tasks.register<Test>(name) {
-            description = "Runs the integration tests for an application with ZGW modules $zgwModules."
+            description = "Runs the integration tests for an application with $modules."
             group = "verification"
             testClassesDirs = sourceSet.output.classesDirs
             classpath = sourceSet.runtimeClasspath
@@ -244,10 +148,21 @@ fun zgwCombinationTest(
     return task
 }
 
-val testWithoutZgw = zgwCombinationTest("testWithoutZgw", emptyList())
-val testWithObjectenApi = zgwCombinationTest("testWithObjectenApi", listOf("objecten-api", "objecttypen-api"))
+// Nothing covered, not even CXF
+val testWithoutZgw = combinationTest("testWithoutZgw", emptyList())
+val testWithObjectenApi =
+    combinationTest(
+        "testWithObjectenApi",
+        listOf("com.ritense.valtimo:objecten-api", "com.ritense.valtimo:objecttypen-api"),
+    )
+// SOAP only: no ZGW module, no other covered plugin
+val testWithSuwinet =
+    combinationTest(
+        "testWithSuwinet",
+        listOf(suwinetAuth) + cxfModules + cxfTestModules,
+    )
 
-val integrationTestTasks = listOf(tasks.test, testWithoutZgw, testWithObjectenApi)
+val integrationTestTasks = listOf(tasks.test, testWithoutZgw, testWithObjectenApi, testWithSuwinet)
 
 dockerCompose {
     setProjectName("http-client-authentication")

@@ -21,11 +21,15 @@ interface HttpClientAuthenticationPluginConfig extends PluginConfigurationData {
     authenticationType: string;
     authHeaderName?: string;
     authSecret?: string;
+    username?: string;
     clientId?: string;
     clientSecret?: string;
     tokenEndpoint?: string;
     audience?: string;
     scope?: string;
+    // Milliseconds; the form gives text
+    connectionTimeout?: string | number;
+    responseTimeout?: string | number;
     clientCertificate?: string;
     clientPrivateKey?: string;
     serverCertificate?: string;

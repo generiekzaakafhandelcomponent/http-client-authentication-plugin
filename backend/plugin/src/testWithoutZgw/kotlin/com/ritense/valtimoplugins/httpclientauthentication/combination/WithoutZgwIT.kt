@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.ritense.valtimoplugins.httpclientauthentication.variant
+package com.ritense.valtimoplugins.httpclientauthentication.combination
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.ObjectNode
@@ -24,6 +24,8 @@ import com.ritense.plugin.repository.PluginDefinitionRepository
 import com.ritense.plugin.service.PluginService
 import com.ritense.valtimoplugins.httpclientauthentication.BaseIntegrationTest
 import com.ritense.valtimoplugins.httpclientauthentication.HttpClientAuthenticator
+import com.ritense.valtimoplugins.httpclientauthentication.plugin.CoveredInterfaces
+import com.ritense.valtimoplugins.httpclientauthentication.plugin.GeneratedPluginClass
 import com.ritense.valtimoplugins.httpclientauthentication.plugin.HttpClientAuthenticationPluginBase.Companion.PLUGIN_KEY
 import com.ritense.valtimoplugins.httpclientauthentication.tls.MtlsTestServer
 import com.ritense.valtimoplugins.httpclientauthentication.tls.TlsFixtures
@@ -39,7 +41,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-// Runs on the classpath of an application without any ZGW module
+// Runs on the classpath of an application without any ZGW module, covered plugin or CXF
 internal class WithoutZgwIT : BaseIntegrationTest() {
     @Autowired
     lateinit var pluginService: PluginService
@@ -51,21 +53,18 @@ internal class WithoutZgwIT : BaseIntegrationTest() {
     lateinit var objectMapper: ObjectMapper
 
     @Test
-    fun `should run without ZGW modules`() {
-        ZGW_MODULE_CLASSES.forEach { assertFalse(ClassUtils.isPresent(it, null), it) }
+    fun `should run without ZGW modules and covered plugins`() {
+        ABSENT_CLASSES.forEach { assertFalse(ClassUtils.isPresent(it, null), it) }
     }
 
     @Test
     @Transactional
-    fun `should deploy the variant without ZGW interfaces`() {
+    fun `should deploy the plugin class without covered interfaces`() {
         val definition = pluginDefinitionRepository.findById(PLUGIN_KEY).orElseThrow()
 
-        assertEquals(
-            "valtimoplugins.httpclientauthentication.variant.z00000000.HttpClientAuthenticationPlugin",
-            definition.fullyQualifiedClassName,
-        )
+        assertEquals(GeneratedPluginClass.CLASS_NAME, definition.fullyQualifiedClassName)
         assertEquals(setOf("http-client-authentication"), definition.categories.map { it.key }.toSet())
-        assertEquals(15, definition.properties.size)
+        assertEquals(18, definition.properties.size)
     }
 
     @Test
@@ -158,17 +157,11 @@ internal class WithoutZgwIT : BaseIntegrationTest() {
             .body<String>()
 
     companion object {
-        private val ZGW_MODULE_CLASSES =
-            listOf(
-                "com.ritense.zakenapi.ZakenApiAuthentication",
-                "com.ritense.documentenapi.DocumentenApiAuthentication",
-                "com.ritense.catalogiapi.CatalogiApiAuthentication",
-                "com.ritense.besluitenapi.BesluitenApiAuthentication",
-                "com.ritense.notificatiesapi.NotificatiesApiAuthentication",
-                "com.ritense.objectenapi.ObjectenApiAuthentication",
-                "com.ritense.objecttypenapi.ObjecttypenApiAuthentication",
-                "com.ritense.klantinteractiesapi.KlantinteractiesApiAuthentication",
-                "com.ritense.openzaak.plugin.token.OpenZaakPluginTokenGeneratorService",
-            )
+        private val ABSENT_CLASSES =
+            CoveredInterfaces.ALL.map { it.interfaceName } +
+                listOf(
+                    "org.apache.cxf.endpoint.Client",
+                    "com.ritense.openzaak.plugin.token.OpenZaakPluginTokenGeneratorService",
+                )
     }
 }
