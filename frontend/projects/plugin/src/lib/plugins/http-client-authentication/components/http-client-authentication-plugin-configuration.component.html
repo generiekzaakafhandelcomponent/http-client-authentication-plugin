@@ -53,17 +53,30 @@
                     [placeholder]="'authHeaderNamePlaceholder' | pluginTranslate: pluginId | async"
                     [margin]="true"
                     [fullWidth]="true"
-                    [defaultValue]="obs.prefill?.authHeaderName"
+                    [defaultValue]="obs.prefill?.authenticationType === 'HEADER' ? obs.prefill?.authHeaderName : ''"
                     [disabled]="obs.disabled"
                     [required]="true"
             >
             </v-input>
         </ng-container>
-        <ng-container *ngIf="['BEARER', 'HEADER', 'TOKEN'].includes((selectedAuthType$|async).value)">
+        <ng-container *ngIf="(selectedAuthType$|async).value === 'BASIC'">
+            <v-input
+                    name="username"
+                    [title]="'username' | pluginTranslate: pluginId | async"
+                    [placeholder]="'usernamePlaceholder' | pluginTranslate: pluginId | async"
+                    [margin]="true"
+                    [fullWidth]="true"
+                    [defaultValue]="obs.prefill?.username"
+                    [disabled]="obs.disabled"
+                    [required]="true"
+            >
+            </v-input>
+        </ng-container>
+        <ng-container *ngIf="['BEARER', 'HEADER', 'TOKEN', 'BEARER_AND_API_KEY', 'BASIC'].includes((selectedAuthType$|async).value)">
             <v-input
                     name="authSecret"
                     type="password"
-                    [title]="'authSecret' | pluginTranslate: pluginId | async"
+                    [title]="((selectedAuthType$|async).value === 'BASIC' ? 'password' : 'authSecret') | pluginTranslate: pluginId | async"
                     [margin]="true"
                     [fullWidth]="true"
                     [defaultValue]="obs.prefill?.authSecret"
@@ -105,7 +118,7 @@
                     [tooltip]="'tokenEndpointTooltip' | pluginTranslate: pluginId | async"
                     [margin]="true"
                     [fullWidth]="true"
-                    [defaultValue]="obs.prefill?.tokenEndpoint"
+                    [defaultValue]="obs.prefill?.authenticationType === 'TOKEN_EXCHANGE' ? obs.prefill?.tokenEndpoint : ''"
                     [disabled]="obs.disabled"
                     [required]="true"
             >
@@ -151,6 +164,54 @@
                     [margin]="true"
                     [fullWidth]="true"
                     [defaultValue]="obs.prefill?.scope"
+                    [disabled]="obs.disabled"
+                    [required]="false"
+            >
+            </v-input>
+        </ng-container>
+        <ng-container *ngIf="(selectedAuthType$|async).value === 'SAML_TOKEN'">
+            <v-input
+                    name="tokenEndpoint"
+                    [title]="'samlTokenServiceUrl' | pluginTranslate: pluginId | async"
+                    [placeholder]="'samlTokenServiceUrlPlaceholder' | pluginTranslate: pluginId | async"
+                    [tooltip]="'samlTokenServiceUrlTooltip' | pluginTranslate: pluginId | async"
+                    [margin]="true"
+                    [fullWidth]="true"
+                    [defaultValue]="obs.prefill?.authenticationType === 'SAML_TOKEN' ? obs.prefill?.tokenEndpoint : ''"
+                    [disabled]="obs.disabled"
+                    [required]="true"
+            >
+            </v-input>
+            <v-input
+                    name="authHeaderName"
+                    [title]="'samlHeaderName' | pluginTranslate: pluginId | async"
+                    [placeholder]="'samlHeaderNamePlaceholder' | pluginTranslate: pluginId | async"
+                    [tooltip]="'samlHeaderNameTooltip' | pluginTranslate: pluginId | async"
+                    [margin]="true"
+                    [fullWidth]="true"
+                    [defaultValue]="obs.prefill?.authenticationType === 'SAML_TOKEN' ? obs.prefill?.authHeaderName : ''"
+                    [disabled]="obs.disabled"
+                    [required]="false"
+            >
+            </v-input>
+            <v-input
+                    name="connectionTimeout"
+                    [title]="'connectionTimeout' | pluginTranslate: pluginId | async"
+                    [placeholder]="'timeoutPlaceholder' | pluginTranslate: pluginId | async"
+                    [tooltip]="'timeoutTooltip' | pluginTranslate: pluginId | async"
+                    [margin]="true"
+                    [defaultValue]="obs.prefill?.connectionTimeout"
+                    [disabled]="obs.disabled"
+                    [required]="false"
+            >
+            </v-input>
+            <v-input
+                    name="responseTimeout"
+                    [title]="'responseTimeout' | pluginTranslate: pluginId | async"
+                    [placeholder]="'timeoutPlaceholder' | pluginTranslate: pluginId | async"
+                    [tooltip]="'timeoutTooltip' | pluginTranslate: pluginId | async"
+                    [margin]="true"
+                    [defaultValue]="obs.prefill?.responseTimeout"
                     [disabled]="obs.disabled"
                     [required]="false"
             >

@@ -62,7 +62,55 @@ describe('HttpClientAuthenticationPluginConfigurationComponent', () => {
 
     it('offers every authentication type', () => {
         expect(component.authenticationTypeOptions.map(option => option.value))
-            .toEqual(['BEARER', 'HEADER', 'TOKEN', 'ZGW_JWT', 'TOKEN_EXCHANGE', 'NONE']);
+            .toEqual(['BEARER', 'HEADER', 'TOKEN', 'ZGW_JWT', 'TOKEN_EXCHANGE', 'BASIC', 'BEARER_AND_API_KEY', 'SAML_TOKEN', 'NONE']);
+    });
+
+    it('requires the fields of the types that cover the other auth plugins', () => {
+        expect(isValid({authenticationType: 'BASIC', username: 'suwinet', authSecret: 'password'})).toBeTrue();
+        expect(isValid({authenticationType: 'BASIC', authSecret: 'password'})).toBeFalse();
+        expect(isValid({authenticationType: 'BASIC', username: 'suwinet'})).toBeFalse();
+        expect(isValid({authenticationType: 'BASIC', username: 'a:b', authSecret: 'password'})).toBeFalse();
+        expect(isValid({authenticationType: 'BEARER_AND_API_KEY', authSecret: 'api-key'})).toBeTrue();
+        expect(isValid({authenticationType: 'BEARER_AND_API_KEY'})).toBeFalse();
+        const saml = {authenticationType: 'SAML_TOKEN', tokenEndpoint: 'https://sts.example.com/sts?b64=true'};
+        expect(isValid(saml)).toBeTrue();
+        expect(isValid({...saml, authHeaderName: 'x-saml-attribute-token1', connectionTimeout: '5000', responseTimeout: ' 20000 '})).toBeTrue();
+        expect(isValid({...saml, tokenEndpoint: 'http://sts.example.com/sts'})).toBeFalse();
+        expect(isValid({...saml, tokenEndpoint: ''})).toBeFalse();
+        expect(isValid({...saml, authHeaderName: 'Bad Header: Name'})).toBeFalse();
+        for (const value of ['0', '-1', '1.5', 'ten']) {
+            expect(isValid({...saml, connectionTimeout: value})).withContext(value).toBeFalse();
+            expect(isValid({...saml, responseTimeout: value})).withContext(value).toBeFalse();
+        }
+    });
+
+    it('refuses a secret the backend can\'t send as a header value, but not Basic credentials, which are encoded', () => {
+        expect(isValid({authenticationType: 'BEARER', authSecret: 'sec\nret'})).toBeFalse();
+        expect(isValid({authenticationType: 'BEARER', authSecret: 'secret\n'})).toBeTrue();
+        expect(isValid({authenticationType: 'TOKEN', authSecret: 'secret\u0085'})).toBeFalse();
+        expect(isValid({authenticationType: 'BEARER_AND_API_KEY', authSecret: 'secret€'})).toBeFalse();
+        expect(isValid({authenticationType: 'BASIC', username: 'süwinet', authSecret: 'pässword€'})).toBeTrue();
+    });
+
+    it('saves the username and timeouts trimmed', () => {
+        const emitted: HttpClientAuthenticationPluginConfig[] = [];
+        component.configuration.subscribe(configuration => emitted.push(configuration));
+
+        isValid({
+            authenticationType: 'SAML_TOKEN',
+            tokenEndpoint: ' https://sts.example.com/sts ',
+            connectionTimeout: ' 5000 ',
+            responseTimeout: '',
+        });
+        save$.next();
+        isValid({authenticationType: 'BASIC', username: ' suwinet ', authSecret: ' password '});
+        save$.next();
+
+        expect(emitted[0].tokenEndpoint).toBe('https://sts.example.com/sts');
+        expect(emitted[0].connectionTimeout).toBe('5000');
+        expect(emitted[0].responseTimeout).toBe('');
+        expect(emitted[1].username).toBe('suwinet');
+        expect(emitted[1].authSecret).toBe(' password ');
     });
 
     it('requires the fields of the chosen authentication type', () => {
@@ -394,6 +442,13 @@ describe('HttpClientAuthenticationPluginConfigurationComponent screen', () => {
         expect(inputNames(fixture)).toEqual(['configurationTitle', 'clientId', 'authSecret']);
         select(fixture, 'TOKEN_EXCHANGE');
         expect(inputNames(fixture)).toEqual(['configurationTitle', 'tokenEndpoint', 'clientId', 'clientSecret', 'audience', 'scope']);
+        select(fixture, 'BASIC');
+        expect(inputNames(fixture)).toEqual(['configurationTitle', 'username', 'authSecret']);
+        select(fixture, 'BEARER_AND_API_KEY');
+        expect(inputNames(fixture)).toEqual(['configurationTitle', 'authSecret']);
+        select(fixture, 'SAML_TOKEN');
+        expect(inputNames(fixture))
+            .toEqual(['configurationTitle', 'tokenEndpoint', 'authHeaderName', 'connectionTimeout', 'responseTimeout']);
         select(fixture, 'NONE');
         expect(inputNames(fixture)).toEqual(['configurationTitle']);
     });
@@ -425,6 +480,27 @@ describe('HttpClientAuthenticationPluginConfigurationComponent screen', () => {
         expect(secret().value).toBe('');
         expect(emitted.map(configuration => configuration.authSecret)).not.toContain('typed-for-A');
     });
+
+    // A value of one type in a field another type shares would go to the wrong place, e.g. a client secret to a SAML service
+    for (const [storedType, field, value, otherType] of [
+        ['HEADER', 'authHeaderName', 'X-Api-Key', 'SAML_TOKEN'],
+        ['SAML_TOKEN', 'authHeaderName', 'x-saml-attribute-token1', 'HEADER'],
+        ['TOKEN_EXCHANGE', 'tokenEndpoint', 'https://keycloak.example.com/token', 'SAML_TOKEN'],
+        ['SAML_TOKEN', 'tokenEndpoint', 'https://sts.example.com/sts?b64=true', 'TOKEN_EXCHANGE'],
+    ]) {
+        it(`prefills ${field} of a stored ${storedType} only for ${storedType}, not for ${otherType}`, async () => {
+            const prefill = {configurationTitle: 'A', authenticationType: storedType, [field]: value};
+            const fixture = render('en', of(prefill as HttpClientAuthenticationPluginConfig));
+            await fixture.whenStable();
+            const input = () => (fixture.nativeElement.querySelector(`v-input[name="${field}"] input`) as HTMLInputElement).value;
+            expect(input()).toBe(value);
+
+            select(fixture, otherType);
+            await fixture.whenStable();
+
+            expect(input()).toBe('');
+        });
+    }
 
     it('disables the choices too while the screen is disabled', async () => {
         const fixture = render('en', of(null), of(true));
@@ -487,6 +563,18 @@ describe('HttpClientAuthenticationPluginConfigurationComponent screen', () => {
                     ['audience', t.audiencePlaceholder],
                     ['scope', t.scopePlaceholder],
                 ],
+                BASIC: [
+                    ['configurationTitle', t.configurationTitlePlaceholder],
+                    ['username', t.usernamePlaceholder],
+                    ['authSecret', null],
+                ],
+                SAML_TOKEN: [
+                    ['configurationTitle', t.configurationTitlePlaceholder],
+                    ['tokenEndpoint', t.samlTokenServiceUrlPlaceholder],
+                    ['authHeaderName', t.samlHeaderNamePlaceholder],
+                    ['connectionTimeout', t.timeoutPlaceholder],
+                    ['responseTimeout', t.timeoutPlaceholder],
+                ],
             };
 
             for (const authenticationType of Object.keys(expected)) {
@@ -517,6 +605,24 @@ describe('HttpClientAuthenticationPluginConfigurationComponent screen', () => {
 
             for (const key of ['clientId', 'clientSecret', 'tlsEnabled', 'tlsEnabled.toggleOn', 'tlsSource', 'clientCertificate', 'clientPrivateKey', 'serverCertificate']) {
                 expect(translations[language][key]).toBeTruthy();
+                expect(text).toContain(translations[language][key]);
+            }
+        });
+
+        it(`labels the fields of the SAML token service and Basic in ${language}`, () => {
+            const fixture = render(language);
+            select(fixture, 'SAML_TOKEN');
+            let text = fixture.nativeElement.textContent as string;
+            for (const key of ['samlTokenServiceUrl', 'samlHeaderName', 'connectionTimeout', 'responseTimeout']) {
+                expect(translations[language][key]).toBeTruthy();
+                expect(text).toContain(translations[language][key]);
+            }
+            // Not the Keycloak texts of token exchange
+            expect(text).not.toContain(translations[language].tokenEndpoint);
+
+            select(fixture, 'BASIC');
+            text = fixture.nativeElement.textContent as string;
+            for (const key of ['username', 'password']) {
                 expect(text).toContain(translations[language][key]);
             }
         });

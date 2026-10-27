@@ -75,6 +75,8 @@ class MtlsTestServer(
                     receivedClientCertificateSubject,
                     receivedAuthorization,
                     exchange.remoteAddress.port,
+                    exchange.requestHeaders.mapKeys { (name, _) -> name.lowercase() },
+                    exchange.requestBody.use { it.readAllBytes().decodeToString() },
                 ),
             )
             Thread.sleep(responseDelayMillis)
@@ -100,5 +102,10 @@ class MtlsTestServer(
         val clientCertificateSubject: String?,
         val authorization: String?,
         val clientPort: Int,
-    )
+        // Lower case names
+        val headers: Map<String, List<String>>,
+        val body: String,
+    ) {
+        fun header(name: String): String? = headers[name.lowercase()]?.single()
+    }
 }

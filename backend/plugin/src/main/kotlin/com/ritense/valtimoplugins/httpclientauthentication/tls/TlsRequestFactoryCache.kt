@@ -40,6 +40,19 @@ class TlsRequestFactoryCache(
     private val defaultTrust by lazy { defaultTrustManager ?: jvmDefaultTrustManager() }
 
     private val requestFactories = ConcurrentHashMap<String, ClientHttpRequestFactory>()
+    private val managers = ConcurrentHashMap<String, TlsManagers>()
+    private val sslContexts = ConcurrentHashMap<String, SSLContext>()
+
+    /**
+     * For clients that take key and trust managers (CXF, netty). The same instances for the same certificates: CXF
+     * shares an HTTP client between conduits with equal TLS parameters, which compares the managers by instance.
+     */
+    fun managers(tlsMaterial: TlsMaterial): TlsManagers =
+        managers.computeIfAbsent(tlsMaterial.digest) { tlsMaterial.managers() }
+
+    /** For callers that apply the SSL context themselves: trusts only the configured server certificates, if any. */
+    fun sslContext(tlsMaterial: TlsMaterial): SSLContext =
+        sslContexts.computeIfAbsent(tlsMaterial.digest) { tlsMaterial.sslContext() }
 
     /** For the API calls: trusts only the configured server certificates, if any. */
     fun requestFactory(tlsMaterial: TlsMaterial): ClientHttpRequestFactory =
@@ -51,7 +64,28 @@ class TlsRequestFactoryCache(
             createRequestFactory(tlsMaterial.sslContextAlsoTrusting(defaultTrust))
         }
 
-    private fun createRequestFactory(sslContext: SSLContext): ClientHttpRequestFactory {
+    /**
+     * For a SAML token service: the client certificate, and only the configured server certificates if any (like the
+     * original haal-centraal-authentication-plugin), with the configuration's own timeouts, also without certificates.
+     */
+    fun samlTokenServiceRequestFactory(
+        tlsMaterial: TlsMaterial,
+        connectTimeout: Duration,
+        readTimeout: Duration,
+    ): ClientHttpRequestFactory =
+        requestFactories.computeIfAbsent(
+            "saml:${tlsMaterial.digest}:${connectTimeout.toMillis()}:${readTimeout.toMillis()}",
+        ) {
+            val sslContext = if (tlsMaterial.isConfigured) tlsMaterial.sslContext() else SSLContext.getDefault()
+            createRequestFactory(sslContext, connectTimeout, readTimeout)
+        }
+
+    private fun createRequestFactory(
+        sslContext: SSLContext,
+        connectTimeout: Duration = Duration.ofSeconds(restClientProperties.connectTimeout),
+        // None for the API calls, as Valtimo 12
+        readTimeout: Duration? = null,
+    ): ClientHttpRequestFactory {
         val connectionManager =
             PoolingHttpClientConnectionManagerBuilder
                 .create()
@@ -71,8 +105,9 @@ class TlsRequestFactoryCache(
         // Same timeouts and buffering as Valtimo's ApacheRequestFactoryCustomizer, which has no read timeout on Valtimo 12
         val requestFactory =
             HttpComponentsClientHttpRequestFactory(httpClient).apply {
-                setConnectTimeout(Duration.ofSeconds(restClientProperties.connectTimeout))
+                setConnectTimeout(connectTimeout)
                 setConnectionRequestTimeout(Duration.ofSeconds(restClientProperties.connectionRequestTimeout))
+                readTimeout?.let(::setReadTimeout)
             }
         return BufferingClientHttpRequestFactory(requestFactory)
     }

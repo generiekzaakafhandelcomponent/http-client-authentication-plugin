@@ -30,15 +30,30 @@ const KEYSTORE_FIELDS = ['keystorePath', 'keystoreSecret', 'truststorePath', 'tr
 // Checked here because Valtimo shows a refusal by the backend only as a generic error
 const HEADER_NAME = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
 const HTTP_URL = /^https?:\/\/[^\s/?#:]+[^\s]*$/i;
+// What can be sent as a header value: tab, visible ASCII, space and Latin-1 without its control characters
+const HEADER_VALUE = /^[\t\x20-\x7E\u00A0-\u00FF]*$/;
+const MILLISECONDS = /^[1-9][0-9]{0,8}$/;
 
 // Not secret, so trimmed on save; a secret is kept as typed
 const TRIMMED_FIELDS = [
-    'configurationTitle', 'authHeaderName', 'clientId', 'tokenEndpoint', 'audience', 'scope',
+    'configurationTitle', 'authHeaderName', 'username', 'clientId', 'tokenEndpoint', 'audience', 'scope',
+    'connectionTimeout', 'responseTimeout',
     'clientCertificate', 'serverCertificate', 'keystorePath', 'truststorePath',
 ];
 
 function filled(value: string | null | undefined): boolean {
     return !!value?.trim();
+}
+
+// Empty, or a value the backend can send as a header
+function headerValue(value: string | null | undefined): boolean {
+    return HEADER_VALUE.test(value ?? '');
+}
+
+// Empty, or a positive number of milliseconds
+function timeout(value: string | number | null | undefined): boolean {
+    const text = `${value ?? ''}`.trim();
+    return !text || MILLISECONDS.test(text);
 }
 
 // PEM needs its line breaks: a header line, then the base64 lines, then the footer line
@@ -76,6 +91,9 @@ export class HttpClientAuthenticationPluginConfigurationComponent
     readonly tokenRadio = {value: 'TOKEN', title: 'Token'};
     readonly zgwJwtRadio = {value: 'ZGW_JWT', title: 'Client ID / secret (ZGW JWT)'};
     readonly tokenExchangeRadio = {value: 'TOKEN_EXCHANGE', title: 'Token exchange'};
+    readonly basicRadio = {value: 'BASIC', title: 'Basic (username / password)'};
+    readonly bearerAndApiKeyRadio = {value: 'BEARER_AND_API_KEY', title: 'Bearer and X-Api-Key (Haal Centraal)'};
+    readonly samlTokenRadio = {value: 'SAML_TOKEN', title: 'SAML token service'};
     readonly noneRadio = {value: 'NONE', title: 'None'};
 
     readonly authenticationTypeOptions = [
@@ -84,6 +102,9 @@ export class HttpClientAuthenticationPluginConfigurationComponent
         this.tokenRadio,
         this.zgwJwtRadio,
         this.tokenExchangeRadio,
+        this.basicRadio,
+        this.bearerAndApiKeyRadio,
+        this.samlTokenRadio,
         this.noneRadio,
     ];
 
@@ -199,12 +220,27 @@ export class HttpClientAuthenticationPluginConfigurationComponent
     private authenticationValid(formValue: HttpClientAuthenticationPluginConfig): boolean {
         const typeUnchanged = !this.secretRequired(formValue.authenticationType);
         const secretValid = filled(formValue.authSecret) || typeUnchanged;
+        // A secret sent as header value, trimmed
+        const headerSecretValid = secretValid && headerValue(formValue.authSecret?.trim());
         switch (formValue.authenticationType) {
             case this.bearerRadio.value:
             case this.tokenRadio.value:
-                return secretValid;
+            case this.bearerAndApiKeyRadio.value:
+                return headerSecretValid;
             case this.headerRadio.value:
-                return HEADER_NAME.test(formValue.authHeaderName?.trim() ?? '') && secretValid;
+                return HEADER_NAME.test(formValue.authHeaderName?.trim() ?? '') && headerSecretValid;
+            // Basic credentials are encoded, so any character goes
+            case this.basicRadio.value: {
+                const username = formValue.username?.trim() ?? '';
+                return !!username && !username.includes(':') && secretValid;
+            }
+            case this.samlTokenRadio.value: {
+                const headerName = formValue.authHeaderName?.trim() ?? '';
+                const tokenEndpoint = formValue.tokenEndpoint?.trim() ?? '';
+                return HTTP_URL.test(tokenEndpoint) && /^https:/i.test(tokenEndpoint)
+                    && (!headerName || HEADER_NAME.test(headerName))
+                    && timeout(formValue.connectionTimeout) && timeout(formValue.responseTimeout);
+            }
             case this.zgwJwtRadio.value:
                 return filled(formValue.clientId) && secretValid
                     && (!filled(formValue.authSecret) || formValue.authSecret.length >= 32);

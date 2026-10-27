@@ -130,6 +130,15 @@ class TlsMaterial(
         return sslContext(arrayOf(trustManager))
     }
 
+    /**
+     * The key and trust managers of [sslContext], for clients that take them instead of an SSL context (CXF, netty).
+     * Null means the JVM's default.
+     */
+    fun managers(): TlsManagers {
+        requireValid()
+        return TlsManagers(keyManagers(), trustManagers())
+    }
+
     private fun requireValid() {
         problems().firstOrNull()?.let { throw IllegalArgumentException(it) }
     }
@@ -290,3 +299,8 @@ class TlsMaterial(
         private const val TRUSTSTORE_SECRET = "truststoreSecret"
     }
 }
+
+class TlsManagers(
+    val keyManagers: Array<KeyManager>?,
+    val trustManagers: Array<TrustManager>?,
+)

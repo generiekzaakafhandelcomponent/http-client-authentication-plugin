@@ -1,8 +1,14 @@
 # Http Client Authentication Plugin
 
-A GZAC plugin that authenticates outbound REST clients configured through other plugins, including the ZGW API
-plugins: a bearer token, a custom header, an `Authorization: Token` header, a ZGW JWT from a client ID and secret or a
-Keycloak token exchange, optionally combined with mutual TLS (PEM text or JKS/PKCS12 keystore files).
+A GZAC plugin that authenticates the outbound REST and SOAP clients of other plugins: a bearer token, a custom header,
+an `Authorization: Token` header, Basic credentials, a bearer token with `X-Api-Key`, a ZGW JWT from a client ID and
+secret, a Keycloak token exchange or a token from a SAML token service, optionally combined with mutual TLS (client
+certificate) and a custom trusted server certificate, as PEM text or as JKS/PKCS12 keystore files.
+
+One configuration screen covers what otherwise takes a separate auth plugin each: plugins that select the ZGW API
+authentication (Zaken, Documenten, Catalogi, Besluiten, Notificaties, Objecten and Objecttypen API),
+`haal-centraal-auth`, `haal-centraal-authentication-plugin`, `suwinet-auth` (SOAP), `tokenauthentication`,
+`token-exchange-authentication` or `mTLS-SSLContext` can select it instead. Those plugins keep working next to it.
 Built from the GZAC plugin template.
 
 > **Supersedes `token-exchange-authentication`.** As of 2.1.0 the Keycloak token-exchange flow is part of this
@@ -13,11 +19,11 @@ Built from the GZAC plugin template.
 
 | Valtimo | Branch | Backend version | Frontend version | Java | Angular |
 |---------|--------|-----------------|------------------|------|---------|
-| 13.x    | `main` | `2.1.0`         | `2.1.0`          | 21   | 19      |
-| 12.x    | `v12`  | `2.2.1-V12`     | `2.2.1-V12`      | 17   | 17      |
+| 13.x    | `main` | `3.1.0`         | `3.1.0`          | 21   | 19      |
+| 12.x    | `v12`  | `2.3.0-V12`     | `2.3.0-V12`      | 17   | 17      |
 
-The plugin key is `http-client-authentication` on Valtimo 12 and still `http-client-authentication-plugin` in `2.1.0`
-for Valtimo 13; see the [release notes](documentation/release-notes.md) before upgrading from Valtimo 12 to 13.
+The plugin key is `http-client-authentication` on both lines (on Valtimo 13 since `3.0.0`); see the
+[release notes](documentation/release-notes.md) before upgrading from Valtimo 12 to 13.
 
 ## Getting started
 

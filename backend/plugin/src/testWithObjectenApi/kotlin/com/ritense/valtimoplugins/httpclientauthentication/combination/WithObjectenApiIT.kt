@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.ritense.valtimoplugins.httpclientauthentication.variant
+package com.ritense.valtimoplugins.httpclientauthentication.combination
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.ObjectNode
@@ -24,6 +24,7 @@ import com.ritense.plugin.domain.PluginConfiguration
 import com.ritense.plugin.repository.PluginDefinitionRepository
 import com.ritense.plugin.service.PluginService
 import com.ritense.valtimoplugins.httpclientauthentication.BaseIntegrationTest
+import com.ritense.valtimoplugins.httpclientauthentication.plugin.GeneratedPluginClass
 import com.ritense.valtimoplugins.httpclientauthentication.plugin.HttpClientAuthenticationPluginBase.Companion.PLUGIN_KEY
 import com.ritense.valtimoplugins.httpclientauthentication.tls.MtlsTestServer
 import com.ritense.valtimoplugins.httpclientauthentication.tls.TlsFixtures
@@ -58,11 +59,11 @@ internal class WithObjectenApiIT : BaseIntegrationTest() {
 
     @Test
     @Transactional
-    fun `should deploy the variant for the ZGW modules on the classpath`() {
+    fun `should implement the ZGW interfaces of the modules on the classpath`() {
         val definition = pluginDefinitionRepository.findById(PLUGIN_KEY).orElseThrow()
 
         assertEquals(
-            "valtimoplugins.httpclientauthentication.variant.z1110011.HttpClientAuthenticationPlugin",
+            GeneratedPluginClass.CLASS_NAME,
             definition.fullyQualifiedClassName,
         )
         assertEquals(
