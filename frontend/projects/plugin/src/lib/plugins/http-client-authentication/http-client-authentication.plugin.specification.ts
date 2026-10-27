@@ -41,23 +41,113 @@ const httpClientAuthenticationPluginSpecification: PluginSpecification = {
     pluginTranslations: {
         nl: {
             configurationTitle: 'Configuratienaam',
+            configurationTitlePlaceholder: 'Client Authentication',
             configurationTitleTooltip:
                 'Http Client Authentication Plugin',
             title: 'Http Client Authentication Plugin',
-            description: 'Biedt authenticatie headers voor uitgaande REST clients',
+            description: 'Biedt authenticatie en mutual TLS voor uitgaande REST clients, waaronder de ZGW API plugins',
             authenticationType: 'Authenticatie type',
             authHeaderName: 'Authenticatie header naam',
-            authSecret: 'Authenticatie secret'
+            authHeaderNamePlaceholder: 'X-Api-Key',
+            authSecret: 'Authenticatie secret',
+            clientId: 'Client ID',
+            clientIdPlaceholder: 'valtimo_client',
+            clientSecret: 'Client secret',
+            clientSecretTooltip: 'Minimaal 32 tekens. Wordt gebruikt om het ZGW JWT-token te ondertekenen.',
+            tokenEndpoint: 'Token endpoint URL',
+            tokenEndpointPlaceholder: 'https://keycloak.example.com/realms/example/protocol/openid-connect/token',
+            tokenEndpointTooltip:
+                'Het token endpoint van Keycloak. GZAC haalt hier met client credentials een token op en wisselt dat in voor een token voor de audience.',
+            audience: 'Audience',
+            audiencePlaceholder: 'haal-centraal',
+            audienceTooltip: 'De client in Keycloak waarvoor het token wordt ingewisseld, meestal die van de API.',
+            scope: 'Scope',
+            scopePlaceholder: 'openid',
+            scopeTooltip: 'Optioneel. Wordt meegestuurd bij het ophalen van het eerste token.',
+            tlsSource: 'Certificaten als',
+            keystorePath: 'Keystore pad',
+            keystorePathPlaceholder: '/etc/gzac/certs/client.p12',
+            keystorePathTooltip:
+                'Optioneel. Een JKS- of PKCS12-bestand met het clientcertificaat en de private key, op elke server van GZAC op hetzelfde pad.',
+            keystoreSecret: 'Keystore wachtwoord',
+            keystoreSecretTooltip:
+                'Verplicht bij een keystore. Wordt na opslaan niet meer getoond; leeg laten behoudt het opgeslagen wachtwoord zolang het pad gelijk blijft.',
+            truststorePath: 'Truststore pad',
+            truststorePathPlaceholder: '/etc/gzac/certs/truststore.p12',
+            truststorePathTooltip:
+                'Optioneel. Een JKS- of PKCS12-bestand met de CA- of servercertificaten die vertrouwd worden in plaats van de standaardlijst van de JVM.',
+            truststoreSecret: 'Truststore wachtwoord',
+            tlsEnabled: 'Certificaten (mutual TLS)',
+            tlsEnabledTooltip:
+                'Schakel in om een clientcertificaat (mutual TLS) te gebruiken of een specifiek servercertificaat te vertrouwen, als PEM-tekst of als keystore-bestand. Bij token exchange gebruikt ook het token endpoint het clientcertificaat. Uitschakelen verwijdert de certificaten bij opslaan.',
+            'tlsEnabled.toggleOn': 'Aan',
+            'tlsEnabled.toggleOff': 'Uit',
+            clientCertificate: 'Clientcertificaat (PEM)',
+            clientCertificateTooltip:
+                'Optioneel. Het certificaat waarmee GZAC zich bij mutual TLS identificeert. Leeg laten schakelt mutual TLS uit.',
+            clientCertificatePlaceholder: '-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----',
+            clientPrivateKey: 'Private key van het clientcertificaat (PEM)',
+            clientPrivateKeyTooltip:
+                'Verplicht bij een nieuw clientcertificaat. Mag niet versleuteld zijn. Wordt na opslaan niet meer getoond; leeg laten behoudt de opgeslagen sleutel.',
+            serverCertificate: 'Servercertificaat (PEM, optioneel)',
+            serverCertificateTooltip:
+                'Optioneel. Het CA- of servercertificaat dat vertrouwd wordt in plaats van de standaardlijst van de JVM.',
+            serverCertificatePlaceholder: '-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----'
         },
         en: {
             configurationTitle: 'Configuration name',
+            configurationTitlePlaceholder: 'Client Authentication',
             configurationTitleTooltip:
                 'Http Client Authentication Plugin',
             title: 'Http Client Authentication Plugin',
-            description: 'Provides authentication headers for outbound REST clients',
+            description: 'Provides authentication and mutual TLS for outbound REST clients, including the ZGW API plugins',
             authenticationType: 'Authentication type',
             authHeaderName: 'Authentication header name',
-            authSecret: 'Authentication secret'
+            authHeaderNamePlaceholder: 'X-Api-Key',
+            authSecret: 'Authentication secret',
+            clientId: 'Client ID',
+            clientIdPlaceholder: 'valtimo_client',
+            clientSecret: 'Client secret',
+            clientSecretTooltip: 'At least 32 characters. Used to sign the ZGW JWT token.',
+            tokenEndpoint: 'Token endpoint URL',
+            tokenEndpointPlaceholder: 'https://keycloak.example.com/realms/example/protocol/openid-connect/token',
+            tokenEndpointTooltip:
+                'The Keycloak token endpoint. GZAC gets a token with client credentials here and exchanges it for a token for the audience.',
+            audience: 'Audience',
+            audiencePlaceholder: 'haal-centraal',
+            audienceTooltip: 'The Keycloak client the token is exchanged for, usually the one of the API.',
+            scope: 'Scope',
+            scopePlaceholder: 'openid',
+            scopeTooltip: 'Optional. Sent when getting the first token.',
+            tlsSource: 'Certificates as',
+            keystorePath: 'Keystore path',
+            keystorePathPlaceholder: '/etc/gzac/certs/client.p12',
+            keystorePathTooltip:
+                'Optional. A JKS or PKCS12 file with the client certificate and private key, at the same path on every GZAC server.',
+            keystoreSecret: 'Keystore password',
+            keystoreSecretTooltip:
+                'Required with a keystore. Not shown again after saving; leave empty to keep the stored password while the path stays the same.',
+            truststorePath: 'Truststore path',
+            truststorePathPlaceholder: '/etc/gzac/certs/truststore.p12',
+            truststorePathTooltip:
+                'Optional. A JKS or PKCS12 file with the CA or server certificates to trust instead of the JVM default list.',
+            truststoreSecret: 'Truststore password',
+            tlsEnabled: 'Certificates (mutual TLS)',
+            tlsEnabledTooltip:
+                'Turn on to present a client certificate (mutual TLS) or to trust a specific server certificate, as PEM text or as keystore file. With token exchange the token endpoint gets the client certificate too. Turning it off removes the certificates on save.',
+            'tlsEnabled.toggleOn': 'On',
+            'tlsEnabled.toggleOff': 'Off',
+            clientCertificate: 'Client certificate (PEM)',
+            clientCertificateTooltip:
+                'Optional. The certificate GZAC presents for mutual TLS. Leave empty to turn mutual TLS off.',
+            clientCertificatePlaceholder: '-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----',
+            clientPrivateKey: 'Client certificate private key (PEM)',
+            clientPrivateKeyTooltip:
+                'Required with a new client certificate. Must not be encrypted. Not shown again after saving; leave empty to keep the stored key.',
+            serverCertificate: 'Server certificate (PEM, optional)',
+            serverCertificateTooltip:
+                'Optional. The CA or server certificate to trust instead of the JVM default list.',
+            serverCertificatePlaceholder: '-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----'
         }
     }
 };

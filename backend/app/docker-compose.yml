@@ -5,12 +5,12 @@ services:
     container_name: plugin-docker-compose-plugin-keycloak
     depends_on:
       - plugin-keycloak-database
-    image: quay.io/keycloak/keycloak:26.2.2
+    image: quay.io/keycloak/keycloak:26.8.1
     ports:
       - "8081:8080"
     environment:
-      KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://plugin-keycloak-database/keycloak
       KC_DB_USERNAME: keycloak
@@ -34,7 +34,7 @@ services:
       start_period: 5s
 
   plugin-keycloak-database:
-    image: postgres:17.4
+    image: postgres:18.6
     container_name: plugin-docker-compose-plugin-keycloak-database
     ports:
       - "54329:5432"
@@ -44,7 +44,7 @@ services:
 
   plugin-database:
     container_name: plugin-docker-compose-plugin-database
-    image: postgres:17.4
+    image: postgres:18.6
     ports:
       - "54320:5432"
     environment:
@@ -55,7 +55,7 @@ services:
       - plugin-database-data:/var/lib/postgres # persist data even if container shuts down
 
   plugin-rabbitmq:
-    image: rabbitmq:4.1.0-management
+    image: rabbitmq:4.3.7-management
     container_name: plugin-docker-compose-plugin-rabbitmq
     volumes:
       - ./imports/plugin-rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
@@ -74,7 +74,7 @@ services:
   # ZGW
 
   openzaak:
-    image: openzaak/open-zaak:1.20.0
+    image: openzaak/open-zaak:1.30.0
     container_name: plugin-docker-compose-openzaak
     platform: linux/amd64
     profiles:
@@ -90,7 +90,7 @@ services:
       - CACHE_DEFAULT=openzaak-redis:6379/0
       - CACHE_AXES=openzaak-redis:6379/0
       - DEBUG=true
-      - ALLOWED_HOSTS=localhost,host.docker.internal,172.17.0.1,openzaak
+      - ALLOWED_HOSTS=localhost,127.0.0.1,host.docker.internal,172.17.0.1,openzaak
       - OPENZAAK_SUPERUSER_USERNAME=admin
       - OPENZAAK_SUPERUSER_EMAIL=admin@admin.org
       - DJANGO_SUPERUSER_PASSWORD=admin
@@ -104,7 +104,7 @@ services:
       - openzaak-redis
 
   openzaak-database:
-    image: postgis/postgis:17-3.4
+    image: postgis/postgis:18-3.6
     container_name: plugin-docker-compose-openzaak-database
     platform: linux/amd64
     profiles:
@@ -120,14 +120,14 @@ services:
       - ./imports/open-zaak:/docker-entrypoint-initdb.d
 
   openzaak-redis:
-    image: redis:7.4.3
+    image: redis:8.10.2
     container_name: plugin-docker-compose-openzaak-redis
     profiles:
       - zgw
       - openzaak
 
   objecten-api:
-    image: maykinmedia/objects-api:2.4.4
+    image: maykinmedia/objects-api:3.6.2
     container_name: plugin-docker-compose-objecten-api
     platform: linux/amd64
     profiles:
@@ -153,6 +153,11 @@ services:
       - OBJECTS_SUPERUSER_USERNAME=admin
       - OBJECTS_SUPERUSER_PASSWORD=admin
       - DEBUG=True
+    volumes: &objects-volumes
+      # certificates of the Objecttypen API service (fixture demodata.json), which goes through the mTLS gateway
+      - ./imports/mtls-gateway/certs/objecten-api.pem:/app/private-media/mtls-gateway/objecten-api.pem:ro
+      - ./imports/mtls-gateway/certs/objecten-api-key.pem:/app/private-media/mtls-gateway/objecten-api-key.pem:ro
+      - ./imports/mtls-gateway/certs/ca.pem:/app/private-media/mtls-gateway/ca.pem:ro
     depends_on:
       - objecten-api-database
       - objecten-api-redis
@@ -167,7 +172,7 @@ services:
       start_period: 30s
 
   objecten-api-database:
-    image: postgis/postgis:17-3.4
+    image: postgis/postgis:18-3.6
     container_name: plugin-docker-compose-objecten-api-database
     platform: linux/amd64
     profiles:
@@ -181,7 +186,7 @@ services:
       - POSTGRES_DB=objects
 
   objecten-api-import:
-    image: maykinmedia/objects-api:2.4.4
+    image: maykinmedia/objects-api:3.6.2
     container_name: plugin-docker-compose-objects-api-import
     platform: linux/amd64
     profiles:
@@ -198,7 +203,7 @@ services:
         condition: service_healthy
 
   objecten-api-redis:
-    image: redis:7.4.3
+    image: redis:8.10.2
     command: [ "redis-server", "--appendonly", "yes" ]
     container_name: plugin-docker-compose-objecten-api-redis
     profiles:
@@ -206,8 +211,9 @@ services:
       - objecten
 
   objecten-api-celery:
-    image: maykinmedia/objects-api:2.4.4
+    image: maykinmedia/objects-api:3.6.2
     environment: *objects-env
+    volumes: *objects-volumes
     command: /celery_worker.sh
     healthcheck:
       test: [ "CMD", "python", "/app/bin/check_celery_worker_liveness.py" ]
@@ -222,9 +228,23 @@ services:
       - zgw
       - objecten
 
+  # The Objecten API reaches the Objecttypen API through the mTLS gateway at https://localhost:8447, the same URL
+  # Valtimo uses: the Objecten API only accepts objecttype URLs under the address it knows the Objecttypen API by.
+  # This relay shares the network of objecten-api and forwards its localhost:8447 to the gateway (TLS passes through).
+  objecten-api-objecttypen-relay:
+    image: alpine/socat:1.8.1.3
+    container_name: plugin-docker-compose-objecten-api-objecttypen-relay
+    profiles:
+      - zgw
+      - objecten
+    network_mode: service:objecten-api
+    command: TCP-LISTEN:8447,fork,reuseaddr,bind=127.0.0.1 TCP:mtls-gateway:8447
+    depends_on:
+      - objecten-api
+      - mtls-gateway
 
   objecttypen-api:
-    image: maykinmedia/objecttypes-api:3.0.2
+    image: maykinmedia/objecttypes-api:3.4.2
     container_name: plugin-docker-compose-objecttypen-api
     platform: linux/amd64
     profiles:
@@ -262,7 +282,7 @@ services:
       start_period: 30s
 
   objecttypen-api-database:
-    image: postgres:17.4
+    image: postgres:18.6
     container_name: plugin-docker-compose-objecttypen-api-database
     profiles:
       - zgw
@@ -275,7 +295,7 @@ services:
       - POSTGRES_DB=objecttypes
 
   objecttypen-api-import:
-    image: maykinmedia/objecttypes-api:3.0.2
+    image: maykinmedia/objecttypes-api:3.4.2
     container_name: plugin-docker-compose-objecttypen-api-import
     platform: linux/amd64
     profiles:
@@ -290,21 +310,33 @@ services:
       objecttypen-api:
         condition: service_healthy
 
-  open-notificaties-rabbitmq:
-    image: rabbitmq:4.1.0-management
-    container_name: plugin-docker-compose-open-notificaties-rabbitmq
+  # Gateway that demands a client certificate (mutual TLS), for testing the Http Client Authentication plugin.
+  # Certificates: imports/mtls-gateway/generate-certs.sh. See documentation/example-application.md.
+  mtls-gateway:
+    image: nginx:1.30.6-alpine
+    container_name: plugin-docker-compose-mtls-gateway
     profiles:
       - zgw
+      - objecten
+      - openzaak
+      - mtls
     ports:
-      - "5673:5672"
-      - "15673:15672"
+      - "8443:8443" # Objecten API
+      - "8444:8444" # Open Zaak
+      - "8445:8445" # Open Notificaties
+      - "8447:8447" # Objecttypen API
+    volumes:
+      - ./imports/mtls-gateway/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./imports/mtls-gateway/certs:/etc/nginx/certs:ro
 
-  open-notificaties-celery:
-    image: openzaak/open-notificaties:1.8.2
+  open-notificaties:
+    image: openzaak/open-notificaties:1.17.0
     container_name: plugin-docker-compose-open-notificaties
     platform: linux/amd64
     profiles:
       - zgw
+    ports:
+      - "8002:8000"
     environment: &notificaties-env
       - DJANGO_SETTINGS_MODULE=nrc.conf.docker
       - SECRET_KEY=${SECRET_KEY:-4wHY2Cp5`4(q%)]cuWxPQJRp5kN?g+`.Xah>%6Fsq6+)R>p_}
@@ -317,36 +349,49 @@ services:
       - DB_USER=notifications
       - DB_PASSWORD=notifications
       - DEBUG=true
-      - RABBITMQ_HOST=open-notificaties-rabbitmq
-      - PUBLISH_BROKER_URL=redis://open-notificaties-redis:6379/0
       - CELERY_BROKER_URL=redis://open-notificaties-redis:6379/0
       - CELERY_RESULT_BACKEND=redis://open-notificaties-redis:6379/0
       - CELERY_LOGLEVEL=DEBUG
-      - CELERY_WORKER_CONCURRENCY=${CELERY_WORKER_CONCURRENCY:-4}
       - SUBPATH=${SUBPATH:-/}
       - DISABLE_2FA=True
-    command: /celery_worker.sh
+      - OTEL_SDK_DISABLED=true
+      - UWSGI_THREADS=1
+    healthcheck:
+      test: [ "CMD", "maykin-common", "health-check" ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     depends_on:
       - open-notificaties-database
-      - open-notificaties-rabbitmq
       - open-notificaties-redis
 
-  open-notificaties:
-    image: openzaak/open-notificaties:1.8.1
+  open-notificaties-celery:
+    image: openzaak/open-notificaties:1.17.0
     container_name: plugin-docker-compose-open-notificaties-celery
     platform: linux/amd64
     profiles:
       - zgw
-    ports:
-      - "8002:8000"
     environment: *notificaties-env
+    command: /celery_worker.sh
     depends_on:
-      - open-notificaties-database
-      - open-notificaties-rabbitmq
-      - open-notificaties-redis
+      open-notificaties:
+        condition: service_healthy
+
+  open-notificaties-celery-beat:
+    image: openzaak/open-notificaties:1.17.0
+    container_name: plugin-docker-compose-open-notificaties-celery-beat
+    platform: linux/amd64
+    profiles:
+      - zgw
+    environment: *notificaties-env
+    command: /celery_beat.sh
+    depends_on:
+      open-notificaties:
+        condition: service_healthy
 
   open-notificaties-database:
-    image: postgres:17.4
+    image: postgres:18.6
     container_name: plugin-docker-compose-open-notificaties-database
     profiles:
       - zgw
@@ -360,13 +405,13 @@ services:
       - ./imports/open-notificaties:/docker-entrypoint-initdb.d
 
   open-notificaties-redis:
-    image: redis:7.4.3
+    image: redis:8.10.2
     container_name: plugin-docker-compose-open-notificaties-redis
     profiles:
       - zgw
 
   open-forms-database:
-    image: postgres:17.4
+    image: postgres:18.6
     container_name: plugin-docker-compose-open-forms-database
     profiles:
       - openformulieren
@@ -379,14 +424,14 @@ services:
       - ./imports/open-formulieren:/docker-entrypoint-initdb.d
 
   open-forms-redis:
-    image: redis:7.4.3
+    image: redis:8.10.2
     container_name: plugin-docker-compose-open-forms-redis
     command: [ "redis-server", "--appendonly", "yes" ]
     profiles:
       - openformulieren
 
   open-forms-web:
-    image: openformulieren/open-forms:3.1.6
+    image: openformulieren/open-forms:4.0.3
     container_name: plugin-docker-compose-open-forms-web
     platform: linux/amd64
     profiles:
@@ -423,7 +468,7 @@ services:
       - open-forms-redis
 
   open-forms-celery:
-    image: openformulieren/open-forms:3.1.6
+    image: openformulieren/open-forms:4.0.3
     container_name: plugin-docker-compose-open-forms-celery
     platform: linux/amd64
     profiles:
@@ -443,7 +488,7 @@ services:
       - open-forms-redis
 
   open-forms-celery-beat:
-    image: openformulieren/open-forms:3.1.6
+    image: openformulieren/open-forms:4.0.3
     container_name: plugin-docker-compose-open-forms-celery-beat
     platform: linux/amd64
     profiles:
@@ -455,7 +500,7 @@ services:
       - open-forms-redis
 
   open-forms-celery-flower:
-    image: openformulieren/open-forms:3.1.6
+    image: openformulieren/open-forms:4.0.3
     container_name: plugin-docker-compose-open-forms-celery-flower
     platform: linux/amd64
     profiles:
@@ -469,7 +514,7 @@ services:
       - open-forms-celery
 
   open-forms-busybox:
-    image: busybox:1.37.0
+    image: busybox:1.38.0
     container_name: plugin-docker-compose-open-forms-busybox
     profiles:
       - openformulieren
@@ -478,7 +523,7 @@ services:
       - ./imports/open-formulieren/private_media:/private_media
 
   open-klant:
-    image: maykinmedia/open-klant:2.10.0
+    image: maykinmedia/open-klant:2.19.1
     container_name: plugin-docker-compose-open-klant
     platform: linux/amd64
     profiles:
@@ -500,7 +545,7 @@ services:
       - open-klant-database
 
   open-klant-database:
-    image: postgres:17.4
+    image: postgres:18.6
     container_name: plugin-docker-compose-open-klant-database
     profiles:
       - openklant
@@ -513,7 +558,7 @@ services:
       - ./imports/open-klanten:/docker-entrypoint-initdb.d
 
   open-klant-redis:
-    image: redis:7.4.3
+    image: redis:8.10.2
     container_name: plugin-docker-compose-open-klant-redis
     profiles:
       - openklant

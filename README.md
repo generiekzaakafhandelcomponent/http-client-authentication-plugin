@@ -1,7 +1,11 @@
 # Http Client Authentication Plugin
 
-A GZAC plugin that provides authentication headers (bearer token or a custom header) for outbound REST clients
-configured through other plugins. Built from the GZAC plugin template.
+A GZAC plugin that authenticates outbound REST clients configured through other plugins: a bearer token, a custom
+header, an `Authorization: Token` header, a ZGW JWT from a client ID and secret or a Keycloak token exchange,
+optionally combined with mutual TLS (client certificate) and a custom trusted server certificate, as PEM text or as
+JKS/PKCS12 keystore files. The ZGW API plugins (Zaken, Documenten, Catalogi,
+Besluiten, Notificaties, Objecten, Objecttypen and Klantinteracties API) can select it as their authentication.
+Built from the GZAC plugin template.
 
 ## Getting started
 

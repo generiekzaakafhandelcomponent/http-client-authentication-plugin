@@ -1,1 +1,1 @@
-This is the Http Client Authentication plugin. It provides authentication headers (bearer token or a custom header) for outbound REST clients configured through other plugins.
+This is the Http Client Authentication plugin. It authenticates outbound REST clients, including the ZGW API plugins, with a bearer token, a custom header, an `Authorization: Token` header, a ZGW JWT from a client ID and secret or a Keycloak token exchange, optionally with mutual TLS (PEM or JKS/PKCS12 keystores). See https://github.com/generiekzaakafhandelcomponent/http-client-authentication-plugin.

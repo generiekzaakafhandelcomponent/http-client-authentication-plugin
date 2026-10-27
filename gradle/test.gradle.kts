@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-tasks.named<Test>("test") {
+tasks.withType<Test>().configureEach {
     systemProperty("spring.profiles.include", "inttest,postgresql")
     useJUnitPlatform()
     doLast {
