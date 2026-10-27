@@ -7,9 +7,10 @@ Overzicht van wijzigingen per versie van de Http Client Authentication plugin.
 Compatibel met Valtimo 13.
 
 - **Breaking change:** de plugin key is gewijzigd van `http-client-authentication-plugin` naar
-  `http-client-authentication`, dezelfde key als de Valtimo 12 versies, en de titel naar "Http Client Authentication".
-  Bestaande configuraties gaan bij het opstarten mee naar de nieuwe key. `*.pluginconfig.json` bestanden moeten de
-  nieuwe key gebruiken (met dezelfde ids). Zie [Upgrading to 3.0.0](plugin.md#upgrading-to-300).
+  `http-client-authentication`, dezelfde key als de Valtimo 12 versies vanaf `2.1.1-V12`, en de titel naar
+  "Http Client Authentication". Bestaande configuraties gaan bij het opstarten mee naar de nieuwe key.
+  `*.pluginconfig.json` bestanden moeten de nieuwe key gebruiken (met dezelfde ids). Zie
+  [Upgrading to 3.0.0](plugin.md#upgrading-to-300).
 - Een upgrade van Valtimo 12 (elke `-V12` versie) naar Valtimo 13 behoudt de configuraties.
 
 ## 2.1.0
@@ -46,9 +47,9 @@ Compatibel met Valtimo 13, met ondersteuning voor Valtimo 13.51.0.
 - **Andere klasse:** de plugin-klasse is nu per applicatie gegenereerd. Code die de plugin opzoekt via de klasse
   `HttpClientAuthenticationPlugin` moet `HttpClientAuthenticator` of de plugin key gebruiken. Draai niet tegelijk
   nodes met `2.0.x` en `2.1.0` tegen dezelfde database (geen rolling upgrade).
-- **Van Valtimo 12:** de Valtimo 12 versies gebruiken de key `http-client-authentication`, deze versie nog
-  `http-client-authentication-plugin`. De configuraties van Valtimo 12 werken dus niet met deze versie; ga bij een
-  upgrade van Valtimo 12 naar `3.0.0`.
+- **Van Valtimo 12:** de Valtimo 12 versies vanaf `2.1.1-V12` gebruiken de key `http-client-authentication`, deze
+  versie nog `http-client-authentication-plugin`. De configuraties van Valtimo 12 werken dus niet met deze versie; ga
+  bij een upgrade van Valtimo 12 naar `3.0.0`.
 - **Logging:** Valtimo logt request bodies op DEBUG (`LoggingRestClientCustomizer`). Bij token exchange staat daarin
   het client secret; zet die logging niet aan in productie.
 

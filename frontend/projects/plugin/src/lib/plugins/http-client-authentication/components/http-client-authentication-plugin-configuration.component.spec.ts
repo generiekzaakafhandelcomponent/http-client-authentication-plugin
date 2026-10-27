@@ -60,6 +60,10 @@ describe('HttpClientAuthenticationPluginConfigurationComponent', () => {
 
     afterEach(() => component.ngOnDestroy());
 
+    it('registers the screen under the backend plugin key', () => {
+        expect(httpClientAuthenticationPluginSpecification.pluginId).toBe('http-client-authentication');
+    });
+
     it('offers every authentication type', () => {
         expect(component.authenticationTypeOptions.map(option => option.value))
             .toEqual(['BEARER', 'HEADER', 'TOKEN', 'ZGW_JWT', 'TOKEN_EXCHANGE', 'NONE']);
