@@ -4,11 +4,12 @@ This project also contains a working example application which is meant to showc
 
 ## Running the example application
 
-All commands below should be run from the **project root** directory.
+Run the commands below from the **project root** directory, except the frontend ones (from `frontend`).
 
 ### Prerequisites
 
 - Java 17
+- Node.js 20 (for example with [nvm](https://github.com/nvm-sh/nvm))
 - [Docker (Desktop)](https://www.docker.com/products/docker-desktop/)
 
 ### Start docker
@@ -32,6 +33,7 @@ By gradle script:
 ### Start frontend
 
 ```shell
+cd frontend
 nvm use 20
 npm run clean
 npm install
@@ -53,7 +55,8 @@ The example application has a few test users that are preconfigured.
 
 The docker compose setup contains `mtls-gateway`, an nginx gateway that only lets requests through when they present a
 client certificate signed by the sandbox CA, like the gateway in front of the ZGW APIs at a municipality. It starts with
-the `zgw` profile (the default for `composeUp`/`bootRun`), or on its own with `--profile mtls`. In this example the
+the `zgw` profile, the default for `composeUp`/`bootRun` (the `mtls` profile starts only the gateway, without the
+APIs behind it). In this example the
 Objecten API is behind it, at `https://127.0.0.1:8443`.
 
 The example application autodeploys
@@ -68,7 +71,10 @@ The object management configuration *Bomen via mTLS gateway*
 ([boom-mtls-gateway.json](/backend/app/src/main/resources/config/objectmanagement/boom-mtls-gateway.json)) reads the
 Boom objects through the gateway, so **Objects → Bomen via mTLS gateway** lists them only because the configuration
 presents the client certificate. Remove the certificates from *Objects API Authentication via mTLS gateway* (turn off
-**Certificates (mutual TLS)** and save) and the list stays empty; the gateway logs the refused calls.
+**Certificates (mutual TLS)** and save) and the list stays empty; the gateway logs the refused calls. To undo this,
+turn the certificates on again and paste `client.pem`, `client-key.pem` and `ca.pem` from
+[imports/mtls-gateway/certs](/backend/app/imports/mtls-gateway/certs), or restart the backend, which autodeploys the
+configuration again.
 
 The gateway logs every request with the client certificate it received and the authentication scheme (never the
 secret):
@@ -93,7 +99,8 @@ The certificates in [imports/mtls-gateway/certs](/backend/app/imports/mtls-gatew
 (`8445`) and the Objecttypen API (`8447`), which this example doesn't use.
 
 Autodeployment adds and updates configurations but never removes them: a sandbox database from an earlier version of
-this example may still hold configurations that the files no longer contain. Remove the docker volumes to start clean.
+this example may still hold configurations that the files no longer contain. Remove that database's docker volume
+(`docker volume ls` shows it, named after the compose project) to start clean.
 
 ## Source code
 
