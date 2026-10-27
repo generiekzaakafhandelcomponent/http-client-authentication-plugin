@@ -26,10 +26,11 @@ jobs:
         uses: gradle/actions/setup-gradle@af1da67850ed9a4cedd57bfd976089dd991e2582 # v4.0.0
 
       - name: Test
-        run: ./gradlew :backend:plugin:test
+        # check runs every test task, the variant ones included, and ktlint
+        run: ./gradlew :backend:plugin:check
 
   frontend-lint:
-    name: Frontend lint
+    name: Frontend lint and tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -44,4 +45,8 @@ jobs:
 
       - name: Lint
         run: npm run lint
+        working-directory: frontend
+
+      - name: Test
+        run: npx ng test @valtimo-plugins/http-client-authentication --watch=false
         working-directory: frontend

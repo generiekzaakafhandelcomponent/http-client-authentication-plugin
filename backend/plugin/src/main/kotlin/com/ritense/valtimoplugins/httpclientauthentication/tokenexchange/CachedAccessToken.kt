@@ -30,11 +30,12 @@ class CachedAccessToken(
 ) {
     // Refresh a little early to avoid using a token that expires mid-flight, but never by more
     // than half the TTL, so a short-lived token doesn't end up expired the instant it's cached.
-    private val expiresAt: Instant = run {
-        val ttlSeconds = expiresInSeconds ?: DEFAULT_TTL_SECONDS
-        val marginSeconds = minOf(EXPIRY_MARGIN_SECONDS, ttlSeconds / 2)
-        issuedAt.plusSeconds(ttlSeconds - marginSeconds)
-    }
+    private val expiresAt: Instant =
+        run {
+            val ttlSeconds = expiresInSeconds ?: DEFAULT_TTL_SECONDS
+            val marginSeconds = minOf(EXPIRY_MARGIN_SECONDS, ttlSeconds / 2)
+            issuedAt.plusSeconds(ttlSeconds - marginSeconds)
+        }
 
     fun isExpired(): Boolean = Instant.now().isAfter(expiresAt)
 

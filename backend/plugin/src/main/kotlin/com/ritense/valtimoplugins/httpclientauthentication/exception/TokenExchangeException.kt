@@ -17,4 +17,7 @@
 
 package com.ritense.valtimoplugins.httpclientauthentication.exception
 
-class TokenExchangeException(message: String, cause: Throwable? = null) : RuntimeException(message, cause)
+class TokenExchangeException(
+    message: String,
+    cause: Throwable? = null,
+) : RuntimeException(message, cause)

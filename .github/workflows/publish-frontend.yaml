@@ -67,7 +67,8 @@ jobs:
       - name: Publish
         run: |
           PUBLISH_PATH=$(node -e "const p=require('path'); const d=require('./projects/${{ matrix.value }}/ng-package.json').dest; console.log(p.normalize(p.join('projects/${{ matrix.value }}', d)))")
-          npm publish "$PUBLISH_PATH" --access public
+          # Not latest: that tag belongs to the Valtimo 13 releases from main
+          npm publish "$PUBLISH_PATH" --access public --tag v12
         working-directory: frontend
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPMJS_SECRET }}

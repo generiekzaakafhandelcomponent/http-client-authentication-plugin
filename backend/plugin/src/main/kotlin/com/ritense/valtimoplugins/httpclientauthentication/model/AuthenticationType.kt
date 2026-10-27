@@ -4,5 +4,7 @@ enum class AuthenticationType {
     NONE,
     BEARER,
     HEADER,
-    TOKEN_EXCHANGE
+    TOKEN,
+    ZGW_JWT,
+    TOKEN_EXCHANGE,
 }

@@ -22,11 +22,41 @@ import {
     HttpClientAuthenticationPluginConfig
 } from "../models/http-client-authentication-plugin-config";
 
+type TlsSource = 'PEM' | 'KEYSTORE';
+
+const PEM_FIELDS = ['clientCertificate', 'clientPrivateKey', 'serverCertificate'] as const;
+const KEYSTORE_FIELDS = ['keystorePath', 'keystoreSecret', 'truststorePath', 'truststoreSecret'] as const;
+
+// Checked here because Valtimo shows a refusal by the backend only as a generic error
+const HEADER_NAME = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
+const HTTP_URL = /^https?:\/\/[^\s/?#:]+[^\s]*$/i;
+
+// Not secret, so trimmed on save; a secret is kept as typed
+const TRIMMED_FIELDS = [
+    'configurationTitle', 'authHeaderName', 'clientId', 'tokenEndpoint', 'audience', 'scope',
+    'clientCertificate', 'serverCertificate', 'keystorePath', 'truststorePath',
+];
+
+function filled(value: string | null | undefined): boolean {
+    return !!value?.trim();
+}
+
+// PEM needs its line breaks: a header line, then the base64 lines, then the footer line
+function isCertificate(text: string): boolean {
+    return /-----BEGIN CERTIFICATE-----\r?\n[\s\S]+\r?\n\s*-----END CERTIFICATE-----/.test(text)
+        && !text.includes('PRIVATE KEY-----');
+}
+
+function isUnencryptedPrivateKey(text: string): boolean {
+    return (text.match(/-----BEGIN [A-Z ]*PRIVATE KEY-----\r?\n/g) ?? []).length === 1 && !text.includes('ENCRYPTED');
+}
+
 @Component({
     standalone: false,
     // eslint-disable-next-line @angular-eslint/component-selector
     selector: 'http-client-authentication-plugin-configuration',
     templateUrl: './http-client-authentication-plugin-configuration.component.html',
+    styles: ['.tls-toggle { margin-block-end: var(--v-input-margin); }'],
 })
 export class HttpClientAuthenticationPluginConfigurationComponent
     // The component explicitly implements the PluginConfigurationComponent interface
@@ -41,12 +71,25 @@ export class HttpClientAuthenticationPluginConfigurationComponent
     @Output() configuration: EventEmitter<HttpClientAuthenticationPluginConfig> =
         new EventEmitter<HttpClientAuthenticationPluginConfig>();
 
+    readonly bearerRadio = {value: 'BEARER', title: 'Bearer'};
+    readonly headerRadio = {value: 'HEADER', title: 'Header'};
+    readonly tokenRadio = {value: 'TOKEN', title: 'Token'};
+    readonly zgwJwtRadio = {value: 'ZGW_JWT', title: 'Client ID / secret (ZGW JWT)'};
+    readonly tokenExchangeRadio = {value: 'TOKEN_EXCHANGE', title: 'Token exchange'};
+    readonly noneRadio = {value: 'NONE', title: 'None'};
+
     readonly authenticationTypeOptions = [
-        {value: 'BEARER', title: 'Bearer'},
-        {value: 'HEADER', title: 'Header'},
-        {value: 'TOKEN_EXCHANGE', title: 'Token exchange'},
-        {value: 'NONE', title: 'None'},
+        this.bearerRadio,
+        this.headerRadio,
+        this.tokenRadio,
+        this.zgwJwtRadio,
+        this.tokenExchangeRadio,
+        this.noneRadio,
     ];
+
+    readonly pemRadio = {value: 'PEM', title: 'PEM'};
+    readonly keystoreRadio = {value: 'KEYSTORE', title: 'Keystore (JKS / PKCS12)'};
+    readonly tlsSourceOptions = [this.pemRadio, this.keystoreRadio];
 
     private saveSubscription!: Subscription;
     private prefillSubscription!: Subscription;
@@ -54,11 +97,42 @@ export class HttpClientAuthenticationPluginConfigurationComponent
     private readonly formValue$ = new BehaviorSubject<HttpClientAuthenticationPluginConfig | null>(null);
     private readonly valid$ = new BehaviorSubject<boolean>(false);
 
-    readonly selectedAuthType$ = new BehaviorSubject<string>('BEARER');
+    // Secrets are never sent back, so an unchanged field that owns a secret keeps its stored secret:
+    // the client certificate its private key, the keystore paths their secrets, the authentication type its secret
+    private prefilledClientCertificate = '';
+    private prefilledKeystorePath = '';
+    private prefilledTruststorePath = '';
+    private prefilledAuthenticationType = '';
+
+    selectedAuthType$ = new BehaviorSubject(this.bearerRadio)
+
+    // Rebuilds the form for each prefilled configuration
+    readonly formVersion$ = new BehaviorSubject<number>(0);
+
+    // Frontend-only switch: the certificate fields are shown, validated and saved only while it is on
+    readonly tlsEnabled$ = new BehaviorSubject<boolean>(false);
+
+    // Secrets that become required by what is filled in, for their required marker
+    privateKeyRequired = false;
+    keystoreSecretRequired = false;
+    truststoreSecretRequired = false;
+
+    // Frontend-only choice: only the fields of the chosen source are shown, validated and saved
+    readonly tlsSource$ = new BehaviorSubject<TlsSource>('PEM');
 
     ngOnInit(): void {
-        this.prefillSubscription = this.prefillConfiguration$?.subscribe(config => {
-            this.radioValueChange(config?.authenticationType);
+        this.prefillSubscription = this.prefillConfiguration$.subscribe(config => {
+            this.formValue$.next(null);
+            this.valid$.next(false);
+            this.formVersion$.next(this.formVersion$.getValue() + 1);
+            this.prefilledClientCertificate = config?.clientCertificate?.trim() ?? '';
+            this.prefilledKeystorePath = config?.keystorePath?.trim() ?? '';
+            this.prefilledTruststorePath = config?.truststorePath?.trim() ?? '';
+            this.prefilledAuthenticationType = config?.authenticationType ?? '';
+            const keystore = !!(this.prefilledKeystorePath || this.prefilledTruststorePath);
+            this.tlsEnabled$.next(keystore || !!(this.prefilledClientCertificate || config?.serverCertificate?.trim()));
+            this.tlsSource$.next(keystore ? 'KEYSTORE' : 'PEM');
+            this.selectAuthType(config?.authenticationType);
         });
         this.openSaveSubscription();
     }
@@ -74,30 +148,123 @@ export class HttpClientAuthenticationPluginConfigurationComponent
     }
 
     radioValueChange(radioValue: string): void {
-        if (this.authenticationTypeOptions.some(option => option.value === radioValue)) {
-            this.selectedAuthType$.next(radioValue);
+        this.selectAuthType(radioValue);
+    }
+
+    tlsEnabledChange(tlsEnabled: boolean): void {
+        this.tlsEnabled$.next(tlsEnabled);
+        this.revalidate();
+    }
+
+    tlsSourceChange(tlsSource: string): void {
+        if (tlsSource === 'PEM' || tlsSource === 'KEYSTORE') {
+            this.tlsSource$.next(tlsSource);
+            this.revalidate();
+        }
+    }
+
+    private revalidate(): void {
+        const formValue = this.formValue$.getValue();
+        if (formValue) {
+            this.handleValid(formValue);
+        }
+    }
+
+    // The secret of a new configuration, or of another authentication type than the stored one, must be entered
+    secretRequired(authenticationType: string | undefined): boolean {
+        return authenticationType !== this.prefilledAuthenticationType;
+    }
+
+    private selectAuthType(authenticationType: string | undefined): void {
+        const option = this.authenticationTypeOptions.find(option => option.value === authenticationType);
+        if (option) {
+            this.selectedAuthType$.next(option);
         }
     }
 
     private handleValid(formValue: HttpClientAuthenticationPluginConfig): void {
-        // The fields each authentication type needs; mTLS (token exchange only) is optional, but each store needs its secret
-        const requiredFields: Record<string, Array<keyof HttpClientAuthenticationPluginConfig>> = {
-            BEARER: ['authSecret'],
-            HEADER: ['authHeaderName', 'authSecret'],
-            TOKEN_EXCHANGE: ['tokenEndpoint', 'clientId', 'clientSecret', 'audience'],
-            NONE: [],
-        };
-        const fields = requiredFields[formValue.authenticationType];
-        const valid = !!(
-            formValue.configurationTitle &&
-            fields &&
-            fields.every(field => !!formValue[field]) &&
-            (!formValue.keystorePath || formValue.keystoreSecret) &&
-            (!formValue.truststorePath || formValue.truststoreSecret)
-        );
+        const clientCertificate = formValue.clientCertificate?.trim() ?? '';
+        this.privateKeyRequired = !!clientCertificate && clientCertificate !== this.prefilledClientCertificate;
+        this.keystoreSecretRequired = this.storeSecretRequired(formValue.keystorePath, this.prefilledKeystorePath);
+        this.truststoreSecretRequired = this.storeSecretRequired(formValue.truststorePath, this.prefilledTruststorePath);
+
+        const valid = filled(formValue.configurationTitle)
+            && this.authenticationValid(formValue)
+            && (!this.tlsEnabled$.getValue() || this.certificatesValid(formValue));
 
         this.valid$.next(valid);
         this.valid.emit(valid);
+    }
+
+    private authenticationValid(formValue: HttpClientAuthenticationPluginConfig): boolean {
+        const typeUnchanged = !this.secretRequired(formValue.authenticationType);
+        const secretValid = filled(formValue.authSecret) || typeUnchanged;
+        switch (formValue.authenticationType) {
+            case this.bearerRadio.value:
+            case this.tokenRadio.value:
+                return secretValid;
+            case this.headerRadio.value:
+                return HEADER_NAME.test(formValue.authHeaderName?.trim() ?? '') && secretValid;
+            case this.zgwJwtRadio.value:
+                return filled(formValue.clientId) && secretValid
+                    && (!filled(formValue.authSecret) || formValue.authSecret.length >= 32);
+            case this.tokenExchangeRadio.value:
+                return HTTP_URL.test(formValue.tokenEndpoint?.trim() ?? '') && filled(formValue.clientId)
+                    && filled(formValue.audience) && (filled(formValue.clientSecret) || typeUnchanged);
+            case this.noneRadio.value:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private certificatesValid(formValue: HttpClientAuthenticationPluginConfig): boolean {
+        if (this.tlsSource$.getValue() === 'KEYSTORE') {
+            return this.storeValid(formValue.keystorePath, formValue.keystoreSecret, this.prefilledKeystorePath)
+                && this.storeValid(formValue.truststorePath, formValue.truststoreSecret, this.prefilledTruststorePath);
+        }
+        const clientCertificate = formValue.clientCertificate?.trim() ?? '';
+        const clientPrivateKey = formValue.clientPrivateKey?.trim() ?? '';
+        const serverCertificate = formValue.serverCertificate?.trim() ?? '';
+        if (serverCertificate && !isCertificate(serverCertificate)) {
+            return false;
+        }
+        if (!clientCertificate) {
+            return !clientPrivateKey;
+        }
+        if (!isCertificate(clientCertificate) || (clientPrivateKey && !isUnencryptedPrivateKey(clientPrivateKey))) {
+            return false;
+        }
+        return !!clientPrivateKey || clientCertificate === this.prefilledClientCertificate;
+    }
+
+    private storeValid(path: string | undefined, secret: string | undefined, prefilledPath: string): boolean {
+        return !this.storeSecretRequired(path, prefilledPath) || filled(secret);
+    }
+
+    private storeSecretRequired(path: string | undefined, prefilledPath: string): boolean {
+        const trimmedPath = path?.trim() ?? '';
+        return !!trimmedPath && trimmedPath !== prefilledPath;
+    }
+
+    // Leaving a field out of the saved configuration clears it; a stored secret stays, but is ignored without its field
+    private withoutInactiveFields(formValue: HttpClientAuthenticationPluginConfig): HttpClientAuthenticationPluginConfig {
+        const {tlsSource, ...configuration} = formValue as HttpClientAuthenticationPluginConfig & {tlsSource?: string};
+        const inactiveFields: readonly string[] = !this.tlsEnabled$.getValue()
+            ? [...PEM_FIELDS, ...KEYSTORE_FIELDS]
+            : this.tlsSource$.getValue() === 'KEYSTORE' ? PEM_FIELDS : KEYSTORE_FIELDS;
+        return Object.fromEntries(
+            Object.entries(configuration)
+                .filter(([field]) => !inactiveFields.includes(field))
+                .map(([field, value]) => [field, typeof value === 'string' ? this.savedValue(field, value) : value])
+        ) as HttpClientAuthenticationPluginConfig;
+    }
+
+    private savedValue(field: string, value: string): string {
+        if (!value.trim()) {
+            return '';
+        }
+        return TRIMMED_FIELDS.includes(field) ? value.trim() : value;
     }
 
     private openSaveSubscription(): void {
@@ -110,7 +277,7 @@ export class HttpClientAuthenticationPluginConfigurationComponent
                 .pipe(take(1))
                 .subscribe(([formValue, valid]) => {
                     if (valid) {
-                        this.configuration.emit(formValue);
+                        this.configuration.emit(this.withoutInactiveFields(formValue));
                     }
                 });
         });
