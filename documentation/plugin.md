@@ -30,7 +30,7 @@ mutual TLS work in every application.
 
 ```kotlin
 dependencies {
-    implementation("com.ritense.valtimoplugins:http-client-authentication:2.2.0-V12")
+    implementation("com.ritense.valtimoplugins:http-client-authentication:2.2.1-V12")
 }
 ```
 
@@ -39,12 +39,12 @@ dependencies {
 ```json
 {
   "dependencies": {
-    "@valtimo-plugins/http-client-authentication": "2.2.0-V12"
+    "@valtimo-plugins/http-client-authentication": "2.2.1-V12"
   }
 }
 ```
 
-Use the exact version: a range such as `^2.2.0-V12` also matches later Valtimo 13 releases (`2.x`), which need
+Use the exact version: a range such as `^2.2.1-V12` also matches later Valtimo 13 releases (`2.x`), which need
 Angular 19. Remove the Plugins repository's `http-client-authentication-plugin` (1.0.0) if the application has it: it
 contains the same classes.
 
