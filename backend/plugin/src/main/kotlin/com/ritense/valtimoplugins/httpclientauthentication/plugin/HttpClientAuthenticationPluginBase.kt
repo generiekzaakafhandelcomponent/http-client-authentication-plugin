@@ -34,6 +34,7 @@ import org.springframework.web.reactive.function.client.ClientResponse
 import org.springframework.web.reactive.function.client.ExchangeFilterFunction
 import org.springframework.web.reactive.function.client.ExchangeFunction
 import reactor.core.publisher.Mono
+import reactor.core.scheduler.Schedulers
 import java.net.URI
 
 /**
@@ -106,6 +107,15 @@ abstract class HttpClientAuthenticationPluginBase(
     ): Mono<ClientResponse> {
         requireAuthentication()
         val tlsMaterial = tlsMaterial()
+        // The token exchange may call Keycloak, which blocks: not on the WebClient's event loop
+        if (authenticationType == AuthenticationType.TOKEN_EXCHANGE) {
+            return Mono
+                .fromCallable { exchangedToken(tlsMaterial) }
+                .subscribeOn(Schedulers.boundedElastic())
+                .flatMap { token ->
+                    next.exchange(ClientRequest.from(request).headers { it.setBearerAuth(token) }.build())
+                }
+        }
         val filteredRequest =
             ClientRequest
                 .from(request)

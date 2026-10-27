@@ -930,6 +930,43 @@ internal class HttpClientAuthenticationPluginTest {
         assertEquals("Property 'authHeaderName' is not a valid header name", exception.message)
     }
 
+    @Test
+    fun `should refuse a private key of another curve than the certificate, naming the field`() {
+        val plugin =
+            plugin(AuthenticationType.NONE) {
+                clientCertificate = TlsFixtures.ED448_CERTIFICATE
+                clientPrivateKey = TlsFixtures.ED25519_PRIVATE_KEY
+            }
+
+        assertTlsError(plugin, "Property 'clientPrivateKey' does not belong to the certificate in 'clientCertificate'")
+    }
+
+    @Test
+    fun `should exchange the token off the WebClient's thread`() {
+        var exchangeThread: String? = null
+        whenever(tokenExchangeClient.exchangeToken(any(), anyOrNull())).thenAnswer {
+            exchangeThread = Thread.currentThread().name
+            TokenExchangeTokenResponse("exchanged-jwt", 300)
+        }
+        var sentAuthorization: String? = null
+
+        WebClient
+            .builder()
+            .filter(tokenExchangePlugin(TokenExchangeTokenCache(tokenExchangeClient)))
+            .exchangeFunction { request ->
+                sentAuthorization = request.headers().getFirst(HttpHeaders.AUTHORIZATION)
+                Mono.just(ClientResponse.create(HttpStatus.OK).build())
+            }.build()
+            .get()
+            .uri(RESOURCE_URL)
+            .retrieve()
+            .toBodilessEntity()
+            .block()
+
+        assertEquals("Bearer exchanged-jwt", sentAuthorization)
+        assertTrue(exchangeThread!!.startsWith("boundedElastic"), exchangeThread)
+    }
+
     private fun tokenExchangePlugin(
         tokenCache: TokenExchangeTokenCache,
         cache: TlsRequestFactoryCache = TlsRequestFactoryCache(restClientProperties),

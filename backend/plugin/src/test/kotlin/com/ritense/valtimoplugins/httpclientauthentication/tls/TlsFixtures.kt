@@ -33,6 +33,8 @@ object TlsFixtures {
     val PSS_CLIENT_CERTIFICATE = read("pss-client.pem")
     val PSS_CLIENT_PRIVATE_KEY = read("pss-client-key.pem")
     val PSS_OTHER_PRIVATE_KEY = read("pss-other-key.pem")
+    val ED25519_PRIVATE_KEY = read("ed25519-key.pem")
+    val ED448_CERTIFICATE = read("ed448.pem")
 
     const val CLIENT_SUBJECT = "CN=gzac-test-client"
 

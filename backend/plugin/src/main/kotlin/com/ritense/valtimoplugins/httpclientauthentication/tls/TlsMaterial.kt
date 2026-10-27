@@ -25,6 +25,7 @@ import org.springframework.boot.ssl.pem.PemSslStoreBundle
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
+import java.security.GeneralSecurityException
 import java.security.KeyStore
 import java.security.PrivateKey
 import java.security.Signature
@@ -240,16 +241,21 @@ class TlsMaterial(
         }
         val algorithm = if (privateKey.algorithm == "EC") "SHA256withECDSA" else privateKey.algorithm
         val challenge = "http-client-authentication".toByteArray()
-        val signed =
+        return try {
+            val signed =
+                Signature.getInstance(algorithm).run {
+                    initSign(privateKey)
+                    update(challenge)
+                    sign()
+                }
             Signature.getInstance(algorithm).run {
-                initSign(privateKey)
+                initVerify(publicKey)
                 update(challenge)
-                sign()
+                verify(signed)
             }
-        return Signature.getInstance(algorithm).run {
-            initVerify(publicKey)
-            update(challenge)
-            verify(signed)
+        } catch (e: GeneralSecurityException) {
+            // E.g. an algorithm the JVM can't sign with, or keys of the same family but another curve
+            false
         }
     }
 
