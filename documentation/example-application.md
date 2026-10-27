@@ -4,11 +4,12 @@ This project also contains a working example application which is meant to showc
 
 ## Running the example application
 
-All commands below should be run from the **project root** directory.
+Run the commands below from the **project root** directory, except the frontend ones (from `frontend`).
 
 ### Prerequisites
 
 - Java 21
+- Node.js 20 (for example with [nvm](https://github.com/nvm-sh/nvm))
 - [Docker (Desktop)](https://www.docker.com/products/docker-desktop/)
 
 ### Start docker
@@ -32,6 +33,7 @@ By gradle script:
 ### Start frontend
 
 ```shell
+cd frontend
 nvm use 20
 npm run clean
 npm install
@@ -53,7 +55,8 @@ The example application has a few test users that are preconfigured.
 
 The docker compose setup contains `mtls-gateway`, an nginx gateway that only lets requests through when they present a
 client certificate signed by the sandbox CA, like the gateway in front of the ZGW APIs at a municipality. It starts with
-the `zgw` profile (the default for `composeUp`/`bootRun`), or on its own with `--profile mtls`.
+the `zgw` profile, the default for `composeUp`/`bootRun` (the `mtls` profile starts only the gateway, without the
+APIs behind it).
 
 | Gateway                  | Forwards to                             |
 |--------------------------|-----------------------------------------|
