@@ -27,9 +27,9 @@ interface HttpClientAuthenticationPluginConfig extends PluginConfigurationData {
     tokenEndpoint?: string;
     audience?: string;
     scope?: string;
-    // Milliseconds; the form gives text
-    connectionTimeout?: string | number;
-    responseTimeout?: string | number;
+    // Milliseconds; the form gives text, the saved configuration a number
+    connectionTimeout?: string | number | null;
+    responseTimeout?: string | number | null;
     clientCertificate?: string;
     clientPrivateKey?: string;
     serverCertificate?: string;

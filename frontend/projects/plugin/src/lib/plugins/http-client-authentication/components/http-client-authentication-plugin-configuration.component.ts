@@ -35,9 +35,11 @@ const HEADER_VALUE = /^[\t\x20-\x7E\u00A0-\u00FF]*$/;
 const MILLISECONDS = /^[1-9][0-9]{0,8}$/;
 
 // Not secret, so trimmed on save; a secret is kept as typed
+// Milliseconds, saved as a number: the backend properties are Int
+const TIMEOUT_FIELDS = ['connectionTimeout', 'responseTimeout'];
+
 const TRIMMED_FIELDS = [
     'configurationTitle', 'authHeaderName', 'username', 'clientId', 'tokenEndpoint', 'audience', 'scope',
-    'connectionTimeout', 'responseTimeout',
     'clientCertificate', 'serverCertificate', 'keystorePath', 'truststorePath',
 ];
 
@@ -304,7 +306,10 @@ export class HttpClientAuthenticationPluginConfigurationComponent
         ) as HttpClientAuthenticationPluginConfig;
     }
 
-    private savedValue(field: string, value: string): string {
+    private savedValue(field: string, value: string): string | number | null {
+        if (TIMEOUT_FIELDS.includes(field)) {
+            return value.trim() ? Number(value.trim()) : null;
+        }
         if (!value.trim()) {
             return '';
         }
