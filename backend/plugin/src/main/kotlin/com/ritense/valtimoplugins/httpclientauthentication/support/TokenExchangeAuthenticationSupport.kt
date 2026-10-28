@@ -25,5 +25,5 @@ import javax.net.ssl.SSLContext
 interface TokenExchangeAuthenticationSupport : TokenExchangeAuthentication {
     override fun getAccessToken(): String = (this as HttpClientAuthenticationPluginBase).bearerToken()
 
-    override fun getSslContext(): SSLContext? = (this as HttpClientAuthenticationPluginBase).apiSslContext()
+    override fun getSslContext(): SSLContext? = (this as HttpClientAuthenticationPluginBase).sslContext()
 }

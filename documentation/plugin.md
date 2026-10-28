@@ -228,6 +228,21 @@ class SomeOtherPlugin(
 }
 ```
 
+A plugin that keeps its own connection (its own proxy, timeouts or redirect handling, or a client other than
+`RestClient`) takes the credentials and certificates instead, and works with every authentication type:
+
+```kotlin
+val client = HttpClient.newBuilder()
+    .apply { httpClientAuthenticator.sslContext()?.let(::sslContext) }
+    .build()
+val request = HttpRequest.newBuilder(uri)
+    .apply { httpClientAuthenticator.authenticationHeaders().forEach { name, values -> values.forEach { header(name, it) } } }
+```
+
+Ask `authenticationHeaders()` per request (a token is fetched or renewed when needed, which blocks), and send them only
+to the API this configuration is for. `sslContext()` is null without certificates; build the client once per
+`SSLContext`, which stays the same until the certificates change.
+
 Select it with a `@PluginProperty` typed as `HttpClientAuthenticator` (or one of the covered interfaces), or look
 configurations up by the key `http-client-authentication`, not by a plugin class: the class is generated when the
 application starts (see below).
@@ -236,7 +251,8 @@ application starts (see below).
 
 | Interface                                       | Methods                                   | What a configuration provides                                                 |
 |-------------------------------------------------|-------------------------------------------|-------------------------------------------------------------------------------|
-| ZGW API authentication, `TokenAuthentication`, `HttpClientAuthenticator` | `applyAuth(RestClient.Builder)`, `filter` | Credentials on every request, certificates through the request factory |
+| ZGW API authentication, `TokenAuthentication`  | `applyAuth(RestClient.Builder)`, `filter` | Credentials on every request, certificates through the request factory |
+| `HttpClientAuthenticator`                       | `applyAuth`, `authenticationHeaders()`, `sslContext()` | The same, or the credentials and certificates for the caller's own connection |
 | `HaalCentraalAuthentication` (both)             | `applyAuth`, `filter`, `getAuthenticatedHttpClient()` | The same; the reactor-netty client gets the certificates, the headers on every request and the timeouts |
 | `SuwinetAuth`                                   | `applyAuth(Client)` (Apache CXF, SOAP)    | Certificates on the HTTP conduit (a copy of its TLS parameters with the key and trust managers), headers on every message; the consumer's timeouts and headers stay |
 | `TokenExchangeAuthentication`                   | `getAccessToken()`, `getSslContext()`     | The bearer token of a type that has one (Bearer, Bearer and X-Api-Key, ZGW JWT, Token exchange, SAML token service; other types fail), and the certificates as `SSLContext` (or none) |

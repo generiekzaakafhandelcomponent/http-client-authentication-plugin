@@ -162,8 +162,9 @@ abstract class HttpClientAuthenticationPluginBase(
         }
 
     /** The headers this configuration sends with a request; may call a token service. */
-    internal fun authenticationHeaders(): HttpHeaders =
-        HttpHeaders().apply {
+    override fun authenticationHeaders(): HttpHeaders {
+        requireAuthentication()
+        return HttpHeaders().apply {
             when (authenticationType) {
                 AuthenticationType.NONE -> Unit
                 AuthenticationType.HEADER -> set(required(authHeaderName), headerSecret())
@@ -181,6 +182,7 @@ abstract class HttpClientAuthenticationPluginBase(
                     setBearerAuth(token())
             }
         }
+    }
 
     /** The token this configuration sends as bearer token, for callers that send it themselves. */
     internal fun bearerToken(): String {
@@ -206,10 +208,10 @@ abstract class HttpClientAuthenticationPluginBase(
 
     internal fun apiTlsManagers(): TlsManagers? = apiTlsMaterial()?.let(tlsRequestFactoryCache::managers)
 
-    internal fun apiSslContext(): SSLContext? = apiTlsMaterial()?.let(tlsRequestFactoryCache::sslContext)
+    override fun sslContext(): SSLContext? = apiTlsMaterial()?.let(tlsRequestFactoryCache::sslContext)
 
     internal fun requiredApiSslContext(): SSLContext =
-        checkNotNull(apiSslContext()) {
+        checkNotNull(sslContext()) {
             if (authenticationType == AuthenticationType.SAML_TOKEN) {
                 "Authentication type $authenticationType uses its certificates for the token service only"
             } else {

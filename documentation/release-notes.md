@@ -18,6 +18,9 @@ Compatibel met Valtimo 13.
 - **Nieuwe types:** **Basic (username / password)**, **Bearer and X-Api-Key** (zoals
   `haal-centraal-auth`) en **SAML token service** (zoals `haal-centraal-authentication-plugin`, met optionele
   timeouts). Nieuwe properties: `username`, `connectionTimeout`, `responseTimeout`.
+- **Voor plugins met een eigen verbinding.** `HttpClientAuthenticator` geeft nu ook de credentials van één request
+  (`authenticationHeaders()`) en de certificaten (`sslContext()`), voor een plugin die zijn eigen proxy, timeouts of
+  HTTP-client houdt, zoals Graph Mail. Dat werkt met elk authenticatie type.
 - **Authenticatie types onder elkaar**, op volgorde van een vast secret naar een token dat opgehaald wordt, met een korte
   uitleg van het gekozen type eronder.
 

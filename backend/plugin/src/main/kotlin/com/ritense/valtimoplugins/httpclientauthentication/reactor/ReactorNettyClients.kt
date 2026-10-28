@@ -34,7 +34,7 @@ object ReactorNettyClients {
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, plugin.connectionTimeoutDuration().toMillis().toInt())
                 .responseTimeout(plugin.responseTimeoutDuration())
         // The same SSL context as the plugin's other clients
-        plugin.apiSslContext()?.let { sslContext ->
+        plugin.sslContext()?.let { sslContext ->
             client = client.secure { it.sslContext(JdkSslContext(sslContext, true, ClientAuth.NONE)) }
         }
         if (plugin.authenticationType != AuthenticationType.NONE) {
