@@ -71,7 +71,14 @@ function isUnencryptedPrivateKey(text: string): boolean {
     // eslint-disable-next-line @angular-eslint/component-selector
     selector: 'http-client-authentication-plugin-configuration',
     templateUrl: './http-client-authentication-plugin-configuration.component.html',
-    styles: ['.tls-toggle { margin-block-end: var(--v-input-margin); }'],
+    styles: [
+        '.tls-toggle, .authentication-type-description { margin-block-end: var(--v-input-margin); }',
+        // v-radio lays its options out in a row, which doesn't fit this many
+        ':host ::ng-deep .authentication-type .cds--radio-button-group { flex-direction: column; align-items: flex-start; }',
+        ':host ::ng-deep .authentication-type .cds--radio-button-wrapper { margin-inline-end: 0; }',
+        ':host ::ng-deep .authentication-type .cds--radio-button-wrapper:not(:last-of-type) { margin-block-end: 0.5rem; }',
+        '.authentication-type-description { max-width: 40rem; }',
+    ],
 })
 export class HttpClientAuthenticationPluginConfigurationComponent
     // The component explicitly implements the PluginConfigurationComponent interface
@@ -92,18 +99,19 @@ export class HttpClientAuthenticationPluginConfigurationComponent
     readonly zgwJwtRadio = {value: 'ZGW_JWT', title: 'Client ID / secret (ZGW JWT)'};
     readonly tokenExchangeRadio = {value: 'TOKEN_EXCHANGE', title: 'Token exchange'};
     readonly basicRadio = {value: 'BASIC', title: 'Basic (username / password)'};
-    readonly bearerAndApiKeyRadio = {value: 'BEARER_AND_API_KEY', title: 'Bearer and X-Api-Key (Haal Centraal)'};
+    readonly bearerAndApiKeyRadio = {value: 'BEARER_AND_API_KEY', title: 'Bearer and X-Api-Key'};
     readonly samlTokenRadio = {value: 'SAML_TOKEN', title: 'SAML token service'};
     readonly noneRadio = {value: 'NONE', title: 'None'};
 
+    // A fixed secret first, then the types that create or fetch a token, then none
     readonly authenticationTypeOptions = [
         this.bearerRadio,
-        this.headerRadio,
         this.tokenRadio,
+        this.headerRadio,
+        this.bearerAndApiKeyRadio,
+        this.basicRadio,
         this.zgwJwtRadio,
         this.tokenExchangeRadio,
-        this.basicRadio,
-        this.bearerAndApiKeyRadio,
         this.samlTokenRadio,
         this.noneRadio,
     ];

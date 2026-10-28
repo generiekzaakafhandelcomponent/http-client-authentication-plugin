@@ -47,6 +47,24 @@ const httpClientAuthenticationPluginSpecification: PluginSpecification = {
             title: 'Http Client Authentication',
             description: 'Biedt authenticatie en mutual TLS voor uitgaande REST- en SOAP-clients, waaronder de ZGW API, Haal Centraal en Suwinet plugins',
             authenticationType: 'Authenticatie type',
+            'authenticationTypeDescription.BEARER':
+                'Stuurt het secret als Authorization: Bearer. Voor API\'s die een vast bearer token verwachten.',
+            'authenticationTypeDescription.TOKEN':
+                'Stuurt het secret als Authorization: Token. Voor de Objecten, Objecttypen en Klantinteracties API.',
+            'authenticationTypeDescription.HEADER':
+                'Stuurt het secret in een header die je zelf opgeeft, bijvoorbeeld X-Api-Key. Voor API\'s met een API key in een eigen header.',
+            'authenticationTypeDescription.BEARER_AND_API_KEY':
+                'Stuurt hetzelfde secret als Authorization: Bearer én als X-Api-Key header. Voor API\'s die beide verwachten, zoals Haal Centraal.',
+            'authenticationTypeDescription.BASIC':
+                'Stuurt een gebruikersnaam en wachtwoord als HTTP Basic authenticatie, bijvoorbeeld voor Suwinet.',
+            'authenticationTypeDescription.ZGW_JWT':
+                'Ondertekent bij elke call een JWT met de client ID en het secret, met daarin de gebruiker die de call doet. Voor Open Zaak, Open Notificaties en andere ZGW API\'s.',
+            'authenticationTypeDescription.TOKEN_EXCHANGE':
+                'Haalt met de client ID en het secret een token op bij Keycloak, wisselt dat in voor een token voor de audience en stuurt dat als bearer token.',
+            'authenticationTypeDescription.SAML_TOKEN':
+                'Vraagt bij elke call een SAML-token op bij een WS-Trust token service en stuurt dat als bearer token of in een header die je opgeeft.',
+            'authenticationTypeDescription.NONE':
+                'Stuurt geen credentials. Voor API\'s zonder authenticatie, of die alleen een clientcertificaat vragen (zie Certificaten hieronder).',
             authHeaderName: 'Authenticatie header naam',
             authHeaderNamePlaceholder: 'X-Api-Key',
             authSecret: 'Authenticatie secret',
@@ -116,6 +134,24 @@ const httpClientAuthenticationPluginSpecification: PluginSpecification = {
             title: 'Http Client Authentication',
             description: 'Provides authentication and mutual TLS for outbound REST and SOAP clients, including the ZGW API, Haal Centraal and Suwinet plugins',
             authenticationType: 'Authentication type',
+            'authenticationTypeDescription.BEARER':
+                'Sends the secret as Authorization: Bearer. For APIs that expect a fixed bearer token.',
+            'authenticationTypeDescription.TOKEN':
+                'Sends the secret as Authorization: Token. For the Objecten, Objecttypen and Klantinteracties API.',
+            'authenticationTypeDescription.HEADER':
+                'Sends the secret in a header you name, for example X-Api-Key. For APIs with an API key in a header of their own.',
+            'authenticationTypeDescription.BEARER_AND_API_KEY':
+                'Sends the same secret as Authorization: Bearer and as X-Api-Key header. For APIs that expect both, such as Haal Centraal.',
+            'authenticationTypeDescription.BASIC':
+                'Sends a username and password as HTTP Basic authentication, for example for Suwinet.',
+            'authenticationTypeDescription.ZGW_JWT':
+                'Signs a JWT with the client ID and secret on every call, carrying the user who makes the call. For Open Zaak, Open Notificaties and other ZGW APIs.',
+            'authenticationTypeDescription.TOKEN_EXCHANGE':
+                'Gets a token from Keycloak with the client ID and secret, exchanges it for a token for the audience and sends that as bearer token.',
+            'authenticationTypeDescription.SAML_TOKEN':
+                'Requests a SAML token from a WS-Trust token service on every call and sends it as bearer token or in a header you name.',
+            'authenticationTypeDescription.NONE':
+                'Sends no credentials. For APIs without authentication, or that only ask for a client certificate (see Certificates below).',
             authHeaderName: 'Authentication header name',
             authHeaderNamePlaceholder: 'X-Api-Key',
             authSecret: 'Authentication secret',
