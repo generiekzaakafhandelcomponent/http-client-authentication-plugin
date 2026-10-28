@@ -39,8 +39,7 @@ internal class PluginDefinitionCheckTest {
 
         assertEquals(
             "Plugin 'http-client-authentication' is deployed with class other.Plugin instead of $PLUGIN_CLASS: " +
-                "another library declares the same plugin key, or this node doesn't deploy plugins " +
-                "(valtimo.bootstrap.enabled) and another version deployed it",
+                "another library declares the same plugin key",
             exception.message,
         )
     }

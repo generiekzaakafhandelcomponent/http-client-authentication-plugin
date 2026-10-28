@@ -289,7 +289,7 @@ plugin), the application stops at startup with a message that names that class.
 
 Nothing to change: configurations, properties and `*.pluginconfig.json` files stay as they are, unless a secret sent in
 a header has a control character or a character beyond Latin-1 within it (see [Authentication type](#authentication-type)):
-such a configuration is refused, and in a `*.pluginconfig.json` that stops the application from starting. The plugin class gets
+such a configuration is refused; in a `*.pluginconfig.json` Valtimo 12 logs it and skips it and the rest of its file. The plugin class gets
 a new name (see above), so stop all nodes before starting `2.3.0-V12`: nodes with another plugin version can't share the
 database. Code that looked the plugin up by class needs the interface or the key (as before).
 
@@ -308,9 +308,9 @@ plugins that use them keep working.
 
 ## Migrating from token-exchange-authentication
 
-The standalone `token-exchange-authentication` plugin is superseded by the `TOKEN_EXCHANGE` type of this plugin.
-Its property keys are the same, so a configuration migrates by changing the plugin definition key and adding the
-authentication type:
+A configuration of the standalone `token-exchange-authentication` plugin can move to the `TOKEN_EXCHANGE` type of this
+plugin. Its property keys are the same, so a configuration migrates by changing the plugin definition key and adding
+the authentication type:
 
 ```json
 {
@@ -327,6 +327,7 @@ authentication type:
 }
 ```
 
-Consumers reference the `http-client-authentication` category (`HttpClientAuthenticator`). The
-`TokenExchangeAuthentication` interface and the `token-exchange-authentication` category are not carried over.
-Remove the `token-exchange-authentication` dependency (backend and frontend) after migrating.
+Plugins that select the `http-client-authentication` category (`HttpClientAuthenticator`) can use it directly. Plugins
+that select the `token-exchange-authentication` category (such as Haal Centraal `0.14`) can select it too, as long as
+`token-exchange-authentication` stays on the classpath: it holds the `TokenExchangeAuthentication` interface. Keep that
+dependency while such a plugin uses it.

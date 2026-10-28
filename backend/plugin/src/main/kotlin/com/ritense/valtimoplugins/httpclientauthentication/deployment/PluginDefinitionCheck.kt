@@ -41,8 +41,7 @@ class PluginDefinitionCheck(
         val deployedClassName = pluginDefinitionRepository.findById(PLUGIN_KEY).map { it.fullyQualifiedClassName }
         check(deployedClassName.orElse(null) == pluginClassName) {
             "Plugin '$PLUGIN_KEY' is deployed with class ${deployedClassName.orElse("<none>")} instead of " +
-                "$pluginClassName: another library declares the same plugin key, or this node doesn't deploy plugins " +
-                "(valtimo.bootstrap.enabled) and another version deployed it"
+                "$pluginClassName: another library declares the same plugin key"
         }
     }
 }

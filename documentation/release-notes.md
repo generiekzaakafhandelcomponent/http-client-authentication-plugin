@@ -19,8 +19,8 @@ Compatibel met Valtimo 12.
   `haal-centraal-auth`) en **SAML token service** (zoals `haal-centraal-authentication-plugin`, met optionele
   timeouts). Nieuwe properties: `username`, `connectionTimeout`, `responseTimeout`.
 - Haal Centraal `0.13` kan de plugin kiezen als SAML-authenticatie (categorie `haal-centraal-authentication` van
-  `haal-centraal-authentication-plugin:1.0.1-V12`) en als `haal-centraal-auth`; vanaf `0.15` kiest Haal Centraal de
-  plugin al rechtstreeks.
+  `haal-centraal-authentication-plugin:1.0.1-V12`), t/m `0.12` als `haal-centraal-auth` en `0.14` als
+  `token-exchange-authentication`; vanaf `0.15` kiest Haal Centraal de plugin al rechtstreeks.
 
 ### Let op bij upgraden
 

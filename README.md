@@ -11,9 +11,8 @@ authentication (Zaken, Documenten, Catalogi, Besluiten, Notificaties, Objecten a
 `token-exchange-authentication` or `mTLS-SSLContext` can select it instead. Those plugins keep working next to it.
 Built from the GZAC plugin template.
 
-> **Supersedes `token-exchange-authentication`.** As of 2.1.0 the Keycloak token-exchange flow is part of this
-> plugin as the `TOKEN_EXCHANGE` authentication type. The standalone `token-exchange-authentication` plugin is no
-> longer maintained. See [Migrating from token-exchange-authentication](documentation/plugin.md#migrating-from-token-exchange-authentication).
+> **Token exchange.** As of 2.1.0 the Keycloak token-exchange flow is part of this plugin as the `TOKEN_EXCHANGE`
+> authentication type. See [Migrating from token-exchange-authentication](documentation/plugin.md#migrating-from-token-exchange-authentication).
 
 ## Supported Valtimo versions
 
