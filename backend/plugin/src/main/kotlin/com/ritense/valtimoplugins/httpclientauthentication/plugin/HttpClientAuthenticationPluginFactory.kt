@@ -18,30 +18,21 @@
 package com.ritense.valtimoplugins.httpclientauthentication.plugin
 
 import com.ritense.plugin.PluginFactory
-import com.ritense.plugin.domain.PluginConfigurationId
 import com.ritense.plugin.service.PluginService
+import com.ritense.valtimoplugins.httpclientauthentication.saml.SamlTokenClient
 import com.ritense.valtimoplugins.httpclientauthentication.tls.TlsRequestFactoryCache
 import com.ritense.valtimoplugins.httpclientauthentication.tokenexchange.TokenExchangeTokenCache
-import com.ritense.valtimoplugins.httpclientauthentication.variant.PluginVariant
-import com.ritense.valtimoplugins.httpclientauthentication.variant.PluginVariants
 
 class HttpClientAuthenticationPluginFactory(
     pluginService: PluginService,
     private val tlsRequestFactoryCache: TlsRequestFactoryCache,
     private val tokenExchangeTokenCache: TokenExchangeTokenCache,
-    variant: PluginVariant = PluginVariants.selected,
+    private val samlTokenClient: SamlTokenClient,
+    // Generated when the context starts: Valtimo loads the class by name outside this factory too
+    pluginClass: Class<out HttpClientAuthenticationPluginBase> = GeneratedPluginClass.get(),
 ) : PluginFactory<HttpClientAuthenticationPluginBase>(pluginService) {
-    // The same variant as Valtimo deployed, so canCreate matches the plugin definition
-    private val constructor =
-        Class
-            .forName(variant.className, true, javaClass.classLoader)
-            .asSubclass(HttpClientAuthenticationPluginBase::class.java)
-            .getConstructor(
-                PluginConfigurationId::class.java,
-                TlsRequestFactoryCache::class.java,
-                TokenExchangeTokenCache::class.java,
-            )
+    private val constructor = PluginClassGenerator.constructorOf(pluginClass)
 
     override fun create(): HttpClientAuthenticationPluginBase =
-        constructor.newInstance(pluginConfigurationId, tlsRequestFactoryCache, tokenExchangeTokenCache)
+        constructor.newInstance(pluginConfigurationId, tlsRequestFactoryCache, tokenExchangeTokenCache, samlTokenClient)
 }

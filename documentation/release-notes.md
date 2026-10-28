@@ -2,6 +2,40 @@
 
 Overzicht van wijzigingen per versie van de Http Client Authentication plugin.
 
+## 2.3.0-V12
+
+Compatibel met Valtimo 12. Bevat dezelfde functies als `3.1.0` voor Valtimo 13; gebruik bij de overstap naar Valtimo 13
+minimaal `3.1.0` (`3.0.0` kent de nieuwe types en properties niet).
+
+### Nieuw
+
+- **Eén plugin voor alle authenticatie.** De plugin kan nu gekozen worden overal waar `haal-centraal-auth`,
+  `haal-centraal-authentication-plugin` (SAML), `suwinet-auth`, `tokenauthentication`,
+  `token-exchange-authentication` of `mTLS-SSLContext` gekozen kan worden, naast de ZGW API plugins. Die plugins blijven
+  gewoon werken; je kiest zelf welke je configureert. De plugin brengt geen van die modules mee en past zich aan de
+  modules in de applicatie aan.
+- **SOAP.** Suwinet (Apache CXF) kan de plugin kiezen, met dezelfde mogelijkheden als `suwinet-auth`: certificaten
+  (`MTLS`), Basic, een header, of niets (`EXTERN`).
+- **Nieuwe types:** **Basic (username / password)**, **Bearer and X-Api-Key** (zoals
+  `haal-centraal-auth`) en **SAML token service** (zoals `haal-centraal-authentication-plugin`, met optionele
+  timeouts). Nieuwe properties: `username`, `connectionTimeout`, `responseTimeout`.
+- **Authenticatie types onder elkaar**, op volgorde van een vast secret naar een token dat opgehaald wordt, met een korte
+  uitleg van het gekozen type eronder.
+- Haal Centraal `0.13` kan de plugin kiezen als SAML-authenticatie (categorie `haal-centraal-authentication` van
+  `haal-centraal-authentication-plugin:1.0.1-V12`), t/m `0.12` als `haal-centraal-auth` en `0.14` als
+  `token-exchange-authentication`; vanaf `0.15` kiest Haal Centraal de plugin al rechtstreeks.
+
+### Let op bij upgraden
+
+- De plugin-klasse heet nu `…plugin.GeneratedHttpClientAuthenticationPlugin` en wordt bij het opstarten gemaakt. Stop
+  alle nodes voor de upgrade (geen rolling upgrade). Configuraties blijven ongewijzigd.
+- Secrets die als header verstuurd worden (Bearer, Header, Token) gaan zonder omringende witruimte (zoals het regeleinde
+  van een secret uit een bestand) de deur uit, zoals ze ook tot nu toe aankwamen. Een regeleinde of ander stuurteken
+  midden in zo'n secret, of een teken buiten Latin-1, wordt geweigerd: dat kan niet als header verstuurd worden. Zulke
+  secrets werkten ook voorheen niet goed.
+- Zie [Covered interfaces](plugin.md#what-each-covered-interface-gets) voor de beperkingen (o.a. `open-product` en de
+  sjabloonlijst van `xential`, die een plugin-klasse opzoeken).
+
 ## 2.2.1-V12
 
 Compatibel met Valtimo 12. Dezelfde plugin als `2.2.0-V12`: de frontend van `2.2.0-V12` is niet op npm gepubliceerd,

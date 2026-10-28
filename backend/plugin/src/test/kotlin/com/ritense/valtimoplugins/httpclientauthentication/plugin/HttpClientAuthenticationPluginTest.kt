@@ -17,7 +17,6 @@
 package com.ritense.valtimoplugins.httpclientauthentication.plugin
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.ritense.plugin.domain.PluginConfigurationId
 import com.ritense.valtimo.contract.client.HostDockerInternalRestClientCustomizer
 import com.ritense.valtimo.contract.client.ValtimoHttpRestClientConfigurationProperties
 import com.ritense.valtimoplugins.httpclientauthentication.model.AuthenticationType
@@ -63,7 +62,6 @@ import org.springframework.web.client.body
 import org.springframework.web.reactive.function.client.ClientResponse
 import org.springframework.web.reactive.function.client.WebClient
 import reactor.core.publisher.Mono
-import valtimoplugins.httpclientauthentication.variant.z0000000.HttpClientAuthenticationPlugin
 import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Path
@@ -1063,7 +1061,7 @@ internal class HttpClientAuthenticationPluginTest {
         cache: TlsRequestFactoryCache = TlsRequestFactoryCache(restClientProperties),
         tokenCache: TokenExchangeTokenCache = TokenExchangeTokenCache(tokenExchangeClient),
         configure: HttpClientAuthenticationPluginBase.() -> Unit = {},
-    ) = HttpClientAuthenticationPlugin(PluginConfigurationId.newId(), cache, tokenCache).also {
+    ) = newPlugin(cache, tokenCache).also {
         // Not apply: the plugin is an ExchangeFilterFunction, whose own apply(ExchangeFunction) would win
         it.authenticationType = type
         it.configure()
