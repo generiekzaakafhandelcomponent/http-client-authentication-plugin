@@ -45,8 +45,26 @@ const httpClientAuthenticationPluginSpecification: PluginSpecification = {
             configurationTitleTooltip:
                 'Http Client Authentication',
             title: 'Http Client Authentication',
-            description: 'Biedt authenticatie en mutual TLS voor uitgaande REST clients, waaronder de ZGW API plugins',
+            description: 'Biedt authenticatie en mutual TLS voor uitgaande REST- en SOAP-clients, waaronder de ZGW API, Haal Centraal en Suwinet plugins',
             authenticationType: 'Authenticatie type',
+            'authenticationTypeDescription.BEARER':
+                'Stuurt het secret als Authorization: Bearer. Voor API\'s die een vast bearer token verwachten.',
+            'authenticationTypeDescription.TOKEN':
+                'Stuurt het secret als Authorization: Token. Voor de Objecten, Objecttypen en Klantinteracties API.',
+            'authenticationTypeDescription.HEADER':
+                'Stuurt het secret in een header die je zelf opgeeft, bijvoorbeeld X-Api-Key. Voor API\'s met een API key in een eigen header.',
+            'authenticationTypeDescription.BEARER_AND_API_KEY':
+                'Stuurt hetzelfde secret als Authorization: Bearer én als X-Api-Key header. Voor API\'s die beide verwachten, zoals Haal Centraal.',
+            'authenticationTypeDescription.BASIC':
+                'Stuurt een gebruikersnaam en wachtwoord als HTTP Basic authenticatie, bijvoorbeeld voor Suwinet.',
+            'authenticationTypeDescription.ZGW_JWT':
+                'Ondertekent bij elke call een JWT met de client ID en het secret, met daarin de gebruiker die de call doet. Voor Open Zaak, Open Notificaties en andere ZGW API\'s.',
+            'authenticationTypeDescription.TOKEN_EXCHANGE':
+                'Haalt met de client ID en het secret een token op bij Keycloak, wisselt dat in voor een token voor de audience en stuurt dat als bearer token.',
+            'authenticationTypeDescription.SAML_TOKEN':
+                'Vraagt bij elke call een SAML-token op bij een WS-Trust token service en stuurt dat als bearer token of in een header die je opgeeft.',
+            'authenticationTypeDescription.NONE':
+                'Stuurt geen credentials. Voor API\'s zonder authenticatie, of die alleen een clientcertificaat vragen (zie Certificaten hieronder).',
             authHeaderName: 'Authenticatie header naam',
             authHeaderNamePlaceholder: 'X-Api-Key',
             authSecret: 'Authenticatie secret',
@@ -64,6 +82,20 @@ const httpClientAuthenticationPluginSpecification: PluginSpecification = {
             scope: 'Scope',
             scopePlaceholder: 'openid',
             scopeTooltip: 'Optioneel. Wordt meegestuurd bij het ophalen van het eerste token.',
+            username: 'Gebruikersnaam',
+            usernamePlaceholder: 'valtimo',
+            password: 'Wachtwoord',
+            samlTokenServiceUrl: 'URL van de SAML token service',
+            samlTokenServiceUrlPlaceholder: 'https://sts.example.com/sts/requestsecuritytoken/v1?b64=true',
+            samlTokenServiceUrlTooltip:
+                'De volledige URL van de WS-Trust token service, met ?b64=true zodat het token als één regel terugkomt. De certificaten hieronder gelden alleen voor deze service, niet voor de API.',
+            samlHeaderName: 'Header voor het token (optioneel)',
+            samlHeaderNamePlaceholder: 'x-saml-attribute-token1',
+            samlHeaderNameTooltip: 'Optioneel. Leeg laten stuurt het token als Authorization: Bearer.',
+            connectionTimeout: 'Connectie-timeout (ms, optioneel)',
+            responseTimeout: 'Response-timeout (ms, optioneel)',
+            timeoutPlaceholder: '10000',
+            timeoutTooltip: 'Optioneel, in milliseconden; standaard 10000. Voor de token service en de reactor-netty client van Haal Centraal.',
             tlsSource: 'Certificaten als',
             keystorePath: 'Keystore pad',
             keystorePathPlaceholder: '/etc/gzac/certs/client.p12',
@@ -79,7 +111,7 @@ const httpClientAuthenticationPluginSpecification: PluginSpecification = {
             truststoreSecret: 'Truststore wachtwoord',
             tlsEnabled: 'Certificaten (mutual TLS)',
             tlsEnabledTooltip:
-                'Schakel in om een clientcertificaat (mutual TLS) te gebruiken of een specifiek servercertificaat te vertrouwen, als PEM-tekst of als keystore-bestand. Bij token exchange gebruikt ook het token endpoint het clientcertificaat. Uitschakelen verwijdert de certificaten bij opslaan.',
+                'Schakel in om een clientcertificaat (mutual TLS) te gebruiken of een specifiek servercertificaat te vertrouwen, als PEM-tekst of als keystore-bestand. Bij token exchange gebruikt ook het token endpoint het clientcertificaat; bij een SAML token service alleen die service. Uitschakelen verwijdert de certificaten bij opslaan.',
             'tlsEnabled.toggleOn': 'Aan',
             'tlsEnabled.toggleOff': 'Uit',
             clientCertificate: 'Clientcertificaat (PEM)',
@@ -100,8 +132,26 @@ const httpClientAuthenticationPluginSpecification: PluginSpecification = {
             configurationTitleTooltip:
                 'Http Client Authentication',
             title: 'Http Client Authentication',
-            description: 'Provides authentication and mutual TLS for outbound REST clients, including the ZGW API plugins',
+            description: 'Provides authentication and mutual TLS for outbound REST and SOAP clients, including the ZGW API, Haal Centraal and Suwinet plugins',
             authenticationType: 'Authentication type',
+            'authenticationTypeDescription.BEARER':
+                'Sends the secret as Authorization: Bearer. For APIs that expect a fixed bearer token.',
+            'authenticationTypeDescription.TOKEN':
+                'Sends the secret as Authorization: Token. For the Objecten, Objecttypen and Klantinteracties API.',
+            'authenticationTypeDescription.HEADER':
+                'Sends the secret in a header you name, for example X-Api-Key. For APIs with an API key in a header of their own.',
+            'authenticationTypeDescription.BEARER_AND_API_KEY':
+                'Sends the same secret as Authorization: Bearer and as X-Api-Key header. For APIs that expect both, such as Haal Centraal.',
+            'authenticationTypeDescription.BASIC':
+                'Sends a username and password as HTTP Basic authentication, for example for Suwinet.',
+            'authenticationTypeDescription.ZGW_JWT':
+                'Signs a JWT with the client ID and secret on every call, carrying the user who makes the call. For Open Zaak, Open Notificaties and other ZGW APIs.',
+            'authenticationTypeDescription.TOKEN_EXCHANGE':
+                'Gets a token from Keycloak with the client ID and secret, exchanges it for a token for the audience and sends that as bearer token.',
+            'authenticationTypeDescription.SAML_TOKEN':
+                'Requests a SAML token from a WS-Trust token service on every call and sends it as bearer token or in a header you name.',
+            'authenticationTypeDescription.NONE':
+                'Sends no credentials. For APIs without authentication, or that only ask for a client certificate (see Certificates below).',
             authHeaderName: 'Authentication header name',
             authHeaderNamePlaceholder: 'X-Api-Key',
             authSecret: 'Authentication secret',
@@ -119,6 +169,20 @@ const httpClientAuthenticationPluginSpecification: PluginSpecification = {
             scope: 'Scope',
             scopePlaceholder: 'openid',
             scopeTooltip: 'Optional. Sent when getting the first token.',
+            username: 'Username',
+            usernamePlaceholder: 'valtimo',
+            password: 'Password',
+            samlTokenServiceUrl: 'SAML token service URL',
+            samlTokenServiceUrlPlaceholder: 'https://sts.example.com/sts/requestsecuritytoken/v1?b64=true',
+            samlTokenServiceUrlTooltip:
+                'The full URL of the WS-Trust token service, with ?b64=true so the token comes back as one line. The certificates below are for this service only, not for the API.',
+            samlHeaderName: 'Header for the token (optional)',
+            samlHeaderNamePlaceholder: 'x-saml-attribute-token1',
+            samlHeaderNameTooltip: 'Optional. Leave empty to send the token as Authorization: Bearer.',
+            connectionTimeout: 'Connection timeout (ms, optional)',
+            responseTimeout: 'Response timeout (ms, optional)',
+            timeoutPlaceholder: '10000',
+            timeoutTooltip: 'Optional, in milliseconds; default 10000. For the token service and the Haal Centraal reactor-netty client.',
             tlsSource: 'Certificates as',
             keystorePath: 'Keystore path',
             keystorePathPlaceholder: '/etc/gzac/certs/client.p12',
@@ -134,7 +198,7 @@ const httpClientAuthenticationPluginSpecification: PluginSpecification = {
             truststoreSecret: 'Truststore password',
             tlsEnabled: 'Certificates (mutual TLS)',
             tlsEnabledTooltip:
-                'Turn on to present a client certificate (mutual TLS) or to trust a specific server certificate, as PEM text or as keystore file. With token exchange the token endpoint gets the client certificate too. Turning it off removes the certificates on save.',
+                'Turn on to present a client certificate (mutual TLS) or to trust a specific server certificate, as PEM text or as keystore file. With token exchange the token endpoint gets the client certificate too; with a SAML token service only that service does. Turning it off removes the certificates on save.',
             'tlsEnabled.toggleOn': 'On',
             'tlsEnabled.toggleOff': 'Off',
             clientCertificate: 'Client certificate (PEM)',

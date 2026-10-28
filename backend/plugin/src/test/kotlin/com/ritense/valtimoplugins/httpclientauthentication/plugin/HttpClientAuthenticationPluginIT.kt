@@ -71,16 +71,19 @@ internal class HttpClientAuthenticationPluginIT : BaseIntegrationTest() {
 
     @Test
     @Transactional
-    fun `should be selectable as authentication by every ZGW API plugin`() {
+    fun `should be selectable as authentication by every ZGW API plugin and every covered auth plugin's consumers`() {
         val definition = pluginDefinitionRepository.findById(PLUGIN_KEY).orElseThrow()
 
-        assertEquals(
-            "valtimoplugins.httpclientauthentication.variant.z11111111.HttpClientAuthenticationPlugin",
-            definition.fullyQualifiedClassName,
-        )
+        assertEquals(GeneratedPluginClass.CLASS_NAME, definition.fullyQualifiedClassName)
         assertEquals(
             setOf(
                 "http-client-authentication",
+                "valtimo-token-authentication-configuration",
+                "haal-centraal-auth",
+                "haal-centraal-authentication-plugin",
+                "suwinet-authentication",
+                "token-exchange-authentication",
+                "mtls-sslcontext-plugin",
                 "zaken-api-authentication",
                 "documenten-api-authentication",
                 "catalogi-api-authentication",
@@ -96,7 +99,7 @@ internal class HttpClientAuthenticationPluginIT : BaseIntegrationTest() {
 
     @Test
     @Transactional
-    fun `should deploy the properties declared by the variant, with the secrets encrypted`() {
+    fun `should deploy the properties of the plugin class, with the secrets encrypted`() {
         val definition = pluginDefinitionRepository.findById(PLUGIN_KEY).orElseThrow()
 
         assertEquals(
@@ -104,11 +107,14 @@ internal class HttpClientAuthenticationPluginIT : BaseIntegrationTest() {
                 "authenticationType" to false,
                 "authHeaderName" to false,
                 "authSecret" to true,
+                "username" to false,
                 "clientId" to false,
                 "clientSecret" to true,
                 "tokenEndpoint" to false,
                 "audience" to false,
                 "scope" to false,
+                "connectionTimeout" to false,
+                "responseTimeout" to false,
                 "clientCertificate" to false,
                 "clientPrivateKey" to true,
                 "serverCertificate" to false,

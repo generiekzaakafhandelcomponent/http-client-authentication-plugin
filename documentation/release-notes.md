@@ -2,6 +2,39 @@
 
 Overzicht van wijzigingen per versie van de Http Client Authentication plugin.
 
+## 3.1.0
+
+Compatibel met Valtimo 13.
+
+### Nieuw
+
+- **Eén plugin voor alle authenticatie.** De plugin kan nu gekozen worden overal waar `haal-centraal-auth`,
+  `haal-centraal-authentication-plugin` (SAML), `suwinet-auth`, `tokenauthentication`,
+  `token-exchange-authentication` of `mTLS-SSLContext` gekozen kan worden, naast de ZGW API plugins. Die plugins blijven
+  gewoon werken; je kiest zelf welke je configureert. De plugin brengt geen van die modules mee en past zich aan de
+  modules in de applicatie aan.
+- **SOAP.** Suwinet (Apache CXF) kan de plugin kiezen, met dezelfde mogelijkheden als `suwinet-auth`: certificaten
+  (`MTLS`), Basic, een header, of niets (`EXTERN`).
+- **Nieuwe types:** **Basic (username / password)**, **Bearer and X-Api-Key** (zoals
+  `haal-centraal-auth`) en **SAML token service** (zoals `haal-centraal-authentication-plugin`, met optionele
+  timeouts). Nieuwe properties: `username`, `connectionTimeout`, `responseTimeout`.
+- **Voor plugins met een eigen verbinding.** `HttpClientAuthenticator` geeft nu ook de credentials van één request
+  (`authenticationHeaders()`) en de certificaten (`sslContext()`), voor een plugin die zijn eigen proxy, timeouts of
+  HTTP-client houdt, zoals Graph Mail. Dat werkt met elk authenticatie type.
+- **Authenticatie types onder elkaar**, op volgorde van een vast secret naar een token dat opgehaald wordt, met een korte
+  uitleg van het gekozen type eronder.
+
+### Let op bij upgraden
+
+- De plugin-klasse heet nu `…plugin.GeneratedHttpClientAuthenticationPlugin` en wordt bij het opstarten gemaakt. Stop
+  alle nodes voor de upgrade (geen rolling upgrade). Configuraties blijven ongewijzigd.
+- Secrets die als header verstuurd worden (Bearer, Header, Token) gaan zonder omringende witruimte (zoals het regeleinde
+  van een secret uit een bestand) de deur uit, zoals ze ook tot nu toe aankwamen. Een regeleinde of ander stuurteken
+  midden in zo'n secret, of een teken buiten Latin-1, wordt geweigerd: dat kan niet als header verstuurd worden. Zulke
+  secrets werkten ook voorheen niet goed.
+- Zie [Covered interfaces](plugin.md#what-each-covered-interface-gets) voor de beperkingen (o.a. `open-product` en de
+  sjabloonlijst van `xential`, die een plugin-klasse opzoeken).
+
 ## 3.0.0
 
 Compatibel met Valtimo 13.

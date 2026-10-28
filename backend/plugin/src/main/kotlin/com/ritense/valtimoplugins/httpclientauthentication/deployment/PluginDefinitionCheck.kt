@@ -15,9 +15,10 @@
  *
  */
 
-package com.ritense.valtimoplugins.httpclientauthentication.variant
+package com.ritense.valtimoplugins.httpclientauthentication.deployment
 
 import com.ritense.plugin.repository.PluginDefinitionRepository
+import com.ritense.valtimoplugins.httpclientauthentication.plugin.GeneratedPluginClass
 import com.ritense.valtimoplugins.httpclientauthentication.plugin.HttpClientAuthenticationPluginBase.Companion.PLUGIN_KEY
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
@@ -25,23 +26,25 @@ import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order
 
 /**
- * Stops the application when Valtimo deployed another class for the plugin key than the selected variant, for example
- * because the application's own packages include all variants. Plugin configurations wouldn't load otherwise.
+ * Stops the application when the plugin key is deployed with another class than the generated one, for example
+ * because Valtimo deployed a scanned class with the same key after this plugin's deployment. Plugin configurations
+ * wouldn't load otherwise. Nothing deployed yet (a node that doesn't deploy plugins, started first) has no
+ * configurations to load.
  */
-class PluginVariantCheck(
+class PluginDefinitionCheck(
     private val pluginDefinitionRepository: PluginDefinitionRepository,
-    private val variant: PluginVariant = PluginVariants.selected,
+    private val pluginClassName: String = GeneratedPluginClass.get().name,
 ) {
     // Valtimo deploys the definitions when the application has started, and the configurations when it's ready
     @Order(Ordered.HIGHEST_PRECEDENCE)
     @EventListener(ApplicationReadyEvent::class)
-    fun checkDeployedVariant() {
-        val deployedClassName = pluginDefinitionRepository.findById(PLUGIN_KEY).map { it.fullyQualifiedClassName }
-        check(deployedClassName.orElse(null) == variant.className) {
-            "Plugin '$PLUGIN_KEY' is deployed with class ${deployedClassName.orElse("<none>")}, but the ZGW " +
-                "modules on the classpath need ${variant.className}. Of ${PluginVariants.ROOT_PACKAGE}, Valtimo " +
-                "may only scan ${variant.packageName}: check valtimo.annotation-scan.accepted-packages and the " +
-                "package of the @SpringBootApplication class."
+    fun checkDeployedClass() {
+        val deployedClassName =
+            pluginDefinitionRepository.findById(PLUGIN_KEY).map { it.fullyQualifiedClassName }.orElse(null) ?: return
+        check(deployedClassName == pluginClassName) {
+            "Plugin '$PLUGIN_KEY' is deployed with class $deployedClassName instead of " +
+                "$pluginClassName: another library declares the same plugin key, or this node doesn't deploy plugins " +
+                "(valtimo.bootstrap.enabled) and another version deployed it"
         }
     }
 }

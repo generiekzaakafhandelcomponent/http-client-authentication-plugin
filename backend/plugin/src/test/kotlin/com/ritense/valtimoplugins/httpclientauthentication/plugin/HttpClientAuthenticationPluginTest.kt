@@ -17,7 +17,6 @@
 package com.ritense.valtimoplugins.httpclientauthentication.plugin
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.ritense.plugin.domain.PluginConfigurationId
 import com.ritense.valtimo.contract.client.HostDockerInternalRestClientCustomizer
 import com.ritense.valtimo.contract.client.ValtimoHttpRestClientConfigurationProperties
 import com.ritense.valtimoplugins.httpclientauthentication.model.AuthenticationType
@@ -63,9 +62,11 @@ import org.springframework.web.client.body
 import org.springframework.web.reactive.function.client.ClientResponse
 import org.springframework.web.reactive.function.client.WebClient
 import reactor.core.publisher.Mono
-import valtimoplugins.httpclientauthentication.variant.z00000000.HttpClientAuthenticationPlugin
 import java.net.SocketTimeoutException
 import java.net.URI
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.FileTime
@@ -221,6 +222,87 @@ internal class HttpClientAuthenticationPluginTest {
             .block()
 
         assertEquals("Token secret-token", sentAuthorization)
+    }
+
+    @Test
+    fun `should give a caller with its own connection the headers applyAuth sends`() {
+        listOf(
+            AuthenticationType.NONE,
+            AuthenticationType.BEARER,
+            AuthenticationType.HEADER,
+            AuthenticationType.TOKEN,
+            AuthenticationType.BASIC,
+            AuthenticationType.BEARER_AND_API_KEY,
+            AuthenticationType.TOKEN_EXCHANGE,
+        ).forEach { type ->
+            val plugin =
+                plugin(type) {
+                    authHeaderName = "X-Gateway-Key"
+                    authSecret = "secret"
+                    username = "user"
+                    tokenEndpoint = URI("https://keycloak.example.com/token")
+                    clientId = "client"
+                    clientSecret = "client-secret"
+                    audience = "haal-centraal"
+                }
+
+            val headers = plugin.authenticationHeaders()
+
+            val credentialHeaders =
+                setOf(HttpHeaders.AUTHORIZATION, HttpClientAuthenticationPluginBase.API_KEY_HEADER, "X-Gateway-Key")
+            assertEquals(headersOf(plugin).filterKeys { it in credentialHeaders }, headers.toMap(), "$type")
+            assertEquals(type == AuthenticationType.NONE, headers.isEmpty(), "$type")
+        }
+    }
+
+    @Test
+    fun `should refuse an incomplete configuration when a caller asks for its headers`() {
+        val plugin = plugin(AuthenticationType.BEARER)
+
+        val exception = assertThrows<IllegalArgumentException> { plugin.authenticationHeaders() }
+
+        assertEquals("Authentication type BEARER requires the properties: authSecret", exception.message)
+    }
+
+    @Test
+    fun `should give a caller with its own connection the certificates and headers for a mutual TLS server`() {
+        MtlsTestServer().use { server ->
+            val plugin =
+                plugin(AuthenticationType.HEADER) {
+                    authHeaderName = "X-Gateway-Key"
+                    authSecret = "secret-api-key"
+                    clientCertificate = TlsFixtures.CLIENT_CERTIFICATE
+                    clientPrivateKey = TlsFixtures.CLIENT_PRIVATE_KEY
+                    serverCertificate = TlsFixtures.CA_CERTIFICATE
+                }
+            val client = HttpClient.newBuilder().sslContext(plugin.sslContext()).build()
+            val request =
+                HttpRequest.newBuilder(URI("${server.baseUrl}/v1.0/users/sender/sendMail")).apply {
+                    plugin.authenticationHeaders().forEach { name, values -> values.forEach { header(name, it) } }
+                }
+
+            val response = client.send(request.build(), HttpResponse.BodyHandlers.ofString())
+
+            assertEquals(200, response.statusCode())
+            val received = server.receivedRequests.single()
+            assertEquals(TlsFixtures.CLIENT_SUBJECT, received.clientCertificateSubject)
+            assertEquals(listOf("secret-api-key"), received.headers["x-gateway-key"])
+        }
+    }
+
+    @Test
+    fun `should give no certificates without them, or for the SAML token service`() {
+        val withoutCertificates = plugin(AuthenticationType.BEARER) { authSecret = "secret" }
+        val samlTokenService =
+            plugin(AuthenticationType.SAML_TOKEN) {
+                tokenEndpoint = URI("https://sts.example.com/token")
+                clientCertificate = TlsFixtures.CLIENT_CERTIFICATE
+                clientPrivateKey = TlsFixtures.CLIENT_PRIVATE_KEY
+                serverCertificate = TlsFixtures.CA_CERTIFICATE
+            }
+
+        assertNull(withoutCertificates.sslContext())
+        assertNull(samlTokenService.sslContext())
     }
 
     @Test
@@ -1083,7 +1165,7 @@ internal class HttpClientAuthenticationPluginTest {
         cache: TlsRequestFactoryCache = TlsRequestFactoryCache(restClientProperties),
         tokenCache: TokenExchangeTokenCache = TokenExchangeTokenCache(tokenExchangeClient),
         configure: HttpClientAuthenticationPluginBase.() -> Unit = {},
-    ) = HttpClientAuthenticationPlugin(PluginConfigurationId.newId(), cache, tokenCache).also {
+    ) = newPlugin(cache, tokenCache).also {
         // Not apply: the plugin is an ExchangeFilterFunction, whose own apply(ExchangeFunction) would win
         it.authenticationType = type
         it.configure()
