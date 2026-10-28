@@ -28,7 +28,8 @@ import org.springframework.core.annotation.Order
 /**
  * Stops the application when the plugin key is deployed with another class than the generated one, for example
  * because Valtimo deployed a scanned class with the same key after this plugin's deployment. Plugin configurations
- * wouldn't load otherwise.
+ * wouldn't load otherwise. Nothing deployed yet (a node that doesn't deploy plugins, started first) has no
+ * configurations to load.
  */
 class PluginDefinitionCheck(
     private val pluginDefinitionRepository: PluginDefinitionRepository,
@@ -38,9 +39,10 @@ class PluginDefinitionCheck(
     @Order(Ordered.HIGHEST_PRECEDENCE)
     @EventListener(ApplicationReadyEvent::class)
     fun checkDeployedClass() {
-        val deployedClassName = pluginDefinitionRepository.findById(PLUGIN_KEY).map { it.fullyQualifiedClassName }
-        check(deployedClassName.orElse(null) == pluginClassName) {
-            "Plugin '$PLUGIN_KEY' is deployed with class ${deployedClassName.orElse("<none>")} instead of " +
+        val deployedClassName =
+            pluginDefinitionRepository.findById(PLUGIN_KEY).map { it.fullyQualifiedClassName }.orElse(null) ?: return
+        check(deployedClassName == pluginClassName) {
+            "Plugin '$PLUGIN_KEY' is deployed with class $deployedClassName instead of " +
                 "$pluginClassName: another library declares the same plugin key, or this node doesn't deploy plugins " +
                 "(valtimo.bootstrap.enabled) and another version deployed it"
         }

@@ -46,8 +46,8 @@ internal class PluginDefinitionCheckTest {
     }
 
     @Test
-    fun `should stop the application when nothing is deployed`() {
-        assertThrows<IllegalStateException> { check(deployedClassName = null).checkDeployedClass() }
+    fun `should accept nothing deployed yet, by a node that doesn't deploy plugins`() {
+        check(deployedClassName = null).checkDeployedClass()
     }
 
     private fun check(deployedClassName: String?): PluginDefinitionCheck {
