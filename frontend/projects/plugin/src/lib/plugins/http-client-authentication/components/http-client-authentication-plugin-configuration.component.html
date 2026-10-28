@@ -83,7 +83,6 @@
                     [title]="((selectedAuthType$|async).value === 'BASIC' ? 'password' : 'authSecret') | pluginTranslate: pluginId | async"
                     [margin]="true"
                     [fullWidth]="true"
-                    [defaultValue]="obs.prefill?.authSecret"
                     [disabled]="obs.disabled"
                     [required]="secretRequired((selectedAuthType$|async).value)"
             >
@@ -108,7 +107,6 @@
                     [tooltip]="'clientSecretTooltip' | pluginTranslate: pluginId | async"
                     [margin]="true"
                     [fullWidth]="true"
-                    [defaultValue]="obs.prefill?.authSecret"
                     [disabled]="obs.disabled"
                     [required]="secretRequired((selectedAuthType$|async).value)"
             >

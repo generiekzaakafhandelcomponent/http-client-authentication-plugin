@@ -102,7 +102,7 @@ describe('HttpClientAuthenticationPluginConfigurationComponent', () => {
         expect(isValid({authenticationType: 'BASIC', username: 'süwinet', authSecret: 'pässword€'})).toBeTrue();
     });
 
-    it('saves the username and timeouts trimmed', () => {
+    it('saves the username trimmed and the timeouts as numbers', () => {
         const emitted: HttpClientAuthenticationPluginConfig[] = [];
         component.configuration.subscribe(configuration => emitted.push(configuration));
 
@@ -117,8 +117,8 @@ describe('HttpClientAuthenticationPluginConfigurationComponent', () => {
         save$.next();
 
         expect(emitted[0].tokenEndpoint).toBe('https://sts.example.com/sts');
-        expect(emitted[0].connectionTimeout).toBe('5000');
-        expect(emitted[0].responseTimeout).toBe('');
+        expect(emitted[0].connectionTimeout).toBe(5000);
+        expect(emitted[0].responseTimeout).toBeNull();
         expect(emitted[1].username).toBe('suwinet');
         expect(emitted[1].authSecret).toBe(' password ');
     });
