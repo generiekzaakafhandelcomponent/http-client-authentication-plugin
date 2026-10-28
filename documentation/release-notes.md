@@ -4,7 +4,8 @@ Overzicht van wijzigingen per versie van de Http Client Authentication plugin.
 
 ## 2.3.0-V12
 
-Compatibel met Valtimo 12.
+Compatibel met Valtimo 12. Bevat dezelfde functies als `3.1.0` voor Valtimo 13; gebruik bij de overstap naar Valtimo 13
+minimaal `3.1.0` (`3.0.0` kent de nieuwe types en properties niet).
 
 ### Nieuw
 

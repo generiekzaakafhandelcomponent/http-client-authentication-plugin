@@ -238,8 +238,9 @@ class SomeOtherPlugin(
 }
 ```
 
-Look the plugin up by the `HttpClientAuthenticator` interface (or one of the covered interfaces) or by its key
-`http-client-authentication`, not by a plugin class: the class is generated when the application starts (see below).
+Select it with a `@PluginProperty` typed as `HttpClientAuthenticator` (or one of the covered interfaces), or look
+configurations up by the key `http-client-authentication`, not by a plugin class: the class is generated when the
+application starts (see below).
 
 ### What each covered interface gets
 
