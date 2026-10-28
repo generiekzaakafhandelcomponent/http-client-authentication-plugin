@@ -16,9 +16,11 @@ minimaal `3.1.0` (`3.0.0` kent de nieuwe types en properties niet).
   modules in de applicatie aan.
 - **SOAP.** Suwinet (Apache CXF) kan de plugin kiezen, met dezelfde mogelijkheden als `suwinet-auth`: certificaten
   (`MTLS`), Basic, een header, of niets (`EXTERN`).
-- **Nieuwe types:** **Basic (username / password)**, **Bearer and X-Api-Key (Haal Centraal)** (zoals
+- **Nieuwe types:** **Basic (username / password)**, **Bearer and X-Api-Key** (zoals
   `haal-centraal-auth`) en **SAML token service** (zoals `haal-centraal-authentication-plugin`, met optionele
   timeouts). Nieuwe properties: `username`, `connectionTimeout`, `responseTimeout`.
+- **Authenticatie types onder elkaar**, op volgorde van een vast secret naar een token dat opgehaald wordt, met een korte
+  uitleg van het gekozen type eronder.
 - Haal Centraal `0.13` kan de plugin kiezen als SAML-authenticatie (categorie `haal-centraal-authentication` van
   `haal-centraal-authentication-plugin:1.0.1-V12`), t/m `0.12` als `haal-centraal-auth` en `0.14` als
   `token-exchange-authentication`; vanaf `0.15` kiest Haal Centraal de plugin al rechtstreeks.

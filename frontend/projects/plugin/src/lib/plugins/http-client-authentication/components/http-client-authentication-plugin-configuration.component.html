@@ -37,15 +37,19 @@
         >
         </v-input>
         <v-radio
+                class="authentication-type"
                 name="authenticationType"
                 [title]="'authenticationType' | pluginTranslate: pluginId | async"
                 [radioValues]="authenticationTypeOptions"
                 [defaultValue]="(selectedAuthType$|async).value"
                 [disabled]="obs.disabled"
-                [margin]="true"
+                [smallMargin]="true"
                 (valueChange)="radioValueChange($event)"
         >
         </v-radio>
+        <p class="authentication-type-description cds--form__helper-text">
+            {{ 'authenticationTypeDescription.' + (selectedAuthType$|async).value | pluginTranslate: pluginId | async }}
+        </p>
         <ng-container *ngIf="(selectedAuthType$|async).value === 'HEADER'">
             <v-input
                     name="authHeaderName"

@@ -98,13 +98,13 @@ Choose how GZAC logs in to the API:
 
 | Authentication type             | Use it for                                    | Fields to fill in                                      |
 |---------------------------------|-----------------------------------------------|--------------------------------------------------------|
-| **Client ID / secret (ZGW JWT)** | Open Zaak and Open Notificaties               | **Client ID** and **Client secret** (at least 32 characters) |
-| **Token**                       | Objecten and Objecttypen API                  | **Authentication secret**: the API token               |
 | **Bearer**                      | APIs that expect a bearer token               | **Authentication secret**: the token                   |
+| **Token**                       | Objecten and Objecttypen API                  | **Authentication secret**: the API token               |
 | **Header**                      | APIs that expect a key in a header of their own | **Authentication header name** (for example `X-Api-Key`) and **Authentication secret** |
-| **Token exchange**              | APIs behind Keycloak token exchange, such as Haal Centraal | **Token endpoint URL**, **Client ID**, **Client secret** and **Audience**; **Scope** is optional |
+| **Bearer and X-Api-Key**        | APIs that expect the secret as bearer token and as `X-Api-Key` header, such as Haal Centraal (as `haal-centraal-auth` does) | **Authentication secret** |
 | **Basic (username / password)** | APIs with HTTP Basic authentication, such as Suwinet | **Username** (without `:`) and **Password**         |
-| **Bearer and X-Api-Key (Haal Centraal)** | Haal Centraal, as `haal-centraal-auth` does: the secret as bearer token and as `X-Api-Key` header | **Authentication secret** |
+| **Client ID / secret (ZGW JWT)** | Open Zaak and Open Notificaties               | **Client ID** and **Client secret** (at least 32 characters) |
+| **Token exchange**              | APIs behind Keycloak token exchange, such as Haal Centraal | **Token endpoint URL**, **Client ID**, **Client secret** and **Audience**; **Scope** is optional |
 | **SAML token service**          | Haal Centraal behind a WS-Trust token service | **SAML token service URL**; **Header for the token**, **Connection timeout** and **Response timeout** are optional |
 | **None**                        | APIs without authentication                   | –                                                      |
 

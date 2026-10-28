@@ -60,9 +60,19 @@ describe('HttpClientAuthenticationPluginConfigurationComponent', () => {
 
     afterEach(() => component.ngOnDestroy());
 
-    it('offers every authentication type', () => {
+    it('registers the screen under the backend plugin key', () => {
+        expect(httpClientAuthenticationPluginSpecification.pluginId).toBe('http-client-authentication');
+    });
+
+    it('offers every authentication type, from a fixed secret to a fetched token, then none', () => {
         expect(component.authenticationTypeOptions.map(option => option.value))
-            .toEqual(['BEARER', 'HEADER', 'TOKEN', 'ZGW_JWT', 'TOKEN_EXCHANGE', 'BASIC', 'BEARER_AND_API_KEY', 'SAML_TOKEN', 'NONE']);
+            .toEqual(['BEARER', 'TOKEN', 'HEADER', 'BEARER_AND_API_KEY', 'BASIC', 'ZGW_JWT', 'TOKEN_EXCHANGE', 'SAML_TOKEN', 'NONE']);
+    });
+
+    it('names no API in the authentication types', () => {
+        for (const option of component.authenticationTypeOptions) {
+            expect(option.title).not.toContain('Haal Centraal');
+        }
     });
 
     it('requires the fields of the types that cover the other auth plugins', () => {
@@ -593,6 +603,18 @@ describe('HttpClientAuthenticationPluginConfigurationComponent screen', () => {
                     ['clientPrivateKey', null],
                     ['serverCertificate', t.serverCertificatePlaceholder],
                 ]);
+            }
+        });
+
+        it(`describes the chosen authentication type in ${language}`, () => {
+            const fixture = render(language);
+            const description = () => fixture.nativeElement.querySelector('.authentication-type-description').textContent.trim();
+
+            for (const option of fixture.componentInstance.authenticationTypeOptions) {
+                select(fixture, option.value);
+                const expected = translations[language][`authenticationTypeDescription.${option.value}`];
+                expect(expected).withContext(option.value).toBeTruthy();
+                expect(description()).withContext(option.value).toBe(expected);
             }
         });
 
