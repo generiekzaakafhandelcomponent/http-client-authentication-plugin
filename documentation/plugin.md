@@ -1,315 +1,132 @@
-# Plugin Documentation
-
-## Overview
-
-The Http Client Authentication plugin tells GZAC how to log in to an external API, over REST or SOAP. A configuration
-holds the credentials (a token, a client ID and secret, a username and password, a token exchange with Keycloak, a
-token from a SAML token service, or a custom header) and, when the API requires it, the certificates for a secure
-connection (mutual TLS).
-
-You can select a configuration of this plugin wherever one of these auth plugins can be selected, so one screen covers
-all of them:
-
-| Instead of                                                         | Selected by, for example                         | Choose the type                                           |
-|--------------------------------------------------------------------|--------------------------------------------------|-----------------------------------------------------------|
-| The ZGW API authentication (`openzaak`, `objecttokenauthentication`, …) | Zaken, Documenten, Catalogi, Besluiten, Notificaties, Objecten, Objecttypen and Klantinteracties API | **Client ID / secret (ZGW JWT)** or **Token**             |
-| `alfrescoauthentication`                                           | Documenten API                                   | **Client ID / secret (ZGW JWT)**                          |
-| `haal-centraal-auth`                                               | Haal Centraal BRP / BAG (`haal-centraal` 2.x)    | **Bearer and X-Api-Key**, or **Header** for an API key only |
-| `haal-centraal-authentication-plugin` (SAML)                       | Haal Centraal BRP / BAG on Valtimo 12 (`haal-centraal` 0.13); on Valtimo 13 select a **SAML token service** configuration through `haal-centraal-auth` | **SAML token service**                                    |
-| `suwinet-auth` (SOAP)                                              | Suwinet                                          | `MTLS`: any type except **SAML token service**, with keystore certificates; `BASIC`: **Basic**; `HEADER`: **Header**; `EXTERN`: **None** |
-| `tokenauthentication`                                              | Plugins that select its category                 | **Token**                                                 |
-| `token-exchange-authentication`                                    | Plugins that select its category                 | **Token exchange**                                        |
-| `mTLS-SSLContext`                                                  | Rotterdam Oracle EBS                             | Any type except **SAML token service**, with certificates |
-
-This is an alternative, not a replacement: the other auth plugins keep working next to this one, and you choose which
-to configure. Other plugins that call an external API can use this plugin as well (see
-[Using it from another plugin](#using-it-from-another-plugin)).
-
-## Installation
-
-The plugin works in every Valtimo 13 application, with any combination of the plugins above, or none. Add the
-dependencies below; there is nothing to configure.
-
-| To use it in                                       | Add                                                                              |
-|----------------------------------------------------|----------------------------------------------------------------------------------|
-| Plugins that ask for an `HttpClientAuthenticator`  | Only this plugin                                                                 |
-| The ZGW API plugins                                | Only this plugin. It supports the ZGW API modules your application already has   |
-| A plugin that selects one of the auth plugins above | This plugin, next to the auth plugin that plugin needs (for example `suwinet-auth` for Suwinet, `haal-centraal-authentication` for Haal Centraal 2.x) |
-
-None of these modules is brought along: the plugin adapts to the ones in your application. It offers a category only
-when the interface of that category is on the classpath, which the plugin that selects it needs anyway. An application
-with only the Objecten API, for example, can select the plugin in the Objecten API plugin (and in the Zaken, Documenten
-and Catalogi API plugins, which the Objecten API module brings along); one with only Suwinet can select it in Suwinet.
-All authentication types and mutual TLS work in every application. SOAP needs Apache CXF, which `suwinet-auth` brings.
-
-### Backend
-
-```kotlin
-dependencies {
-    implementation("com.ritense.valtimoplugins:http-client-authentication:3.1.0")
-}
-```
-
-### Frontend
-
-```json
-{
-  "dependencies": {
-    "@valtimo-plugins/http-client-authentication": "3.1.0"
-  }
-}
-```
-
-In your `app.module.ts`:
-
-```typescript
-import {
-    HttpClientAuthenticationPluginModule, httpClientAuthenticationPluginSpecification,
-} from '@valtimo-plugins/http-client-authentication';
-
-@NgModule({
-    imports: [
-        HttpClientAuthenticationPluginModule,
-    ],
-    providers: [
-        {
-            provide: PLUGIN_TOKEN,
-            useValue: [
-                httpClientAuthenticationPluginSpecification,
-            ]
-        }
-    ]
-})
-```
-
-## Configuring the plugin
-
-Go to **Admin > Plugins**, click **Configure plugin** and choose **Http Client Authentication**.
-
-### Authentication type
-
-Choose how GZAC logs in to the API:
-
-| Authentication type             | Use it for                                    | Fields to fill in                                      |
-|---------------------------------|-----------------------------------------------|--------------------------------------------------------|
-| **Bearer**                      | APIs that expect a bearer token               | **Authentication secret**: the token                   |
-| **Token**                       | Objecten, Objecttypen and Klantinteracties API | **Authentication secret**: the API token               |
-| **Header**                      | APIs that expect a key in a header of their own | **Authentication header name** (for example `X-Api-Key`) and **Authentication secret** |
-| **Bearer and X-Api-Key**        | APIs that expect the secret as bearer token and as `X-Api-Key` header, such as Haal Centraal (as `haal-centraal-auth` does) | **Authentication secret** |
-| **Basic (username / password)** | APIs with HTTP Basic authentication, such as Suwinet | **Username** (without `:`) and **Password**         |
-| **Client ID / secret (ZGW JWT)** | Open Zaak and Open Notificaties               | **Client ID** and **Client secret** (at least 32 characters) |
-| **Token exchange**              | APIs behind Keycloak token exchange, such as Haal Centraal | **Token endpoint URL**, **Client ID**, **Client secret** and **Audience**; **Scope** is optional |
-| **SAML token service**          | Haal Centraal behind a WS-Trust token service | **SAML token service URL**; **Header for the token**, **Connection timeout** and **Response timeout** are optional |
-| **None**                        | APIs without authentication                   | –                                                      |
-
-With **Token exchange**, GZAC gets a token from the Keycloak token endpoint with its client ID and secret, exchanges it
-for a token for the audience (usually the Keycloak client of the API) and sends that as bearer token. The token is
-reused until shortly before it expires, also by other plugins that use the same configuration.
-
-With **SAML token service**, GZAC asks the token service for a SAML 2.0 token (a WS-Trust `RequestSecurityToken`) on
-every call and sends the response as bearer token, or in the header you name (for example `x-saml-attribute-token1`).
-Fill in the full URL, including the path and `?b64=true` (for example
-`https://sts.example.com/sts/requestsecuritytoken/v1?b64=true`): unlike `haal-centraal-authentication-plugin`, GZAC
-doesn't add them, and without `?b64=true` the service answers with XML, which can't be sent as a header (the call fails
-with "did not return a single-line token"). The URL must be `https`. The certificates of this configuration are used
-for the token service only, not for the API, and when a server certificate or truststore is configured, only that is
-trusted for the token service. The timeouts are in milliseconds (default 10000).
-
-GZAC sets the credentials on every call, so a token is never sent after it expired, and a ZGW JWT carries the user who
-made the call. Secrets sent in a header (Bearer, Header, Token, Bearer and X-Api-Key) are sent without surrounding whitespace, such as
-the line break at the end of a secret file, and must be text that can be sent in a header: no line breaks or other
-control characters within, and no characters beyond Latin-1 (such as `€`). **Basic** sends the username and password
-as typed (UTF-8), like `suwinet-auth`: a line break at the end of a password file is part of the password.
-
-Secrets are not shown again after saving. When you edit a configuration, leave the secret empty to keep the stored
-one. If you switch to another authentication type, enter the secret again.
-
-### Certificates (mutual TLS)
-
-Some APIs are behind a gateway that only accepts calls from a known client certificate, or use a certificate that is
-not publicly trusted. Turn on **Certificates (mutual TLS)** for any authentication type, and choose under
-**Certificates as** where they come from: **PEM** (pasted into the screen) or **Keystore (JKS / PKCS12)** (files on the
-server). A configuration uses one of the two.
-
-As **PEM**:
-
-- **Client certificate (PEM)** – the certificate GZAC presents to the API. Paste the contents of the `.pem` or `.crt`
-  file, starting with `-----BEGIN CERTIFICATE-----`. Leave it empty if the API does not ask for a client certificate.
-  Don't paste the private key into this field: it is not stored encrypted. If you do, **Save configuration** stays
-  disabled (the private key field below shows *(required)*).
-- **Client certificate private key (PEM)** – the private key that belongs to the client certificate, starting with
-  `-----BEGIN PRIVATE KEY-----` (or `RSA PRIVATE KEY` / `EC PRIVATE KEY`). Keys protected with a password are not
-  supported. The key is not shown again after saving; when editing, leave it empty to keep the stored key, as long as
-  the client certificate stays the same. A new client certificate needs its key again.
-- **Server certificate (PEM, optional)** – optional. The certificate (or CA certificate) of the API to trust. Fill it in when the
-  API uses a certificate that is not publicly trusted, for example one issued by an internal CA. When it is filled in,
-  only that certificate is trusted for this configuration.
-
-As **Keystore (JKS / PKCS12)**:
-
-- **Keystore path** and **Keystore password** – a JKS or PKCS12 file with the client certificate and its private key.
-- **Truststore path** and **Truststore password** – optional. A JKS or PKCS12 file with the certificates to trust
-  instead of the publicly trusted ones.
-
-The files must be at the same path on every server that runs GZAC. GZAC reads them on the first call, not when saving:
-a wrong path or password shows up as an error on that call, naming the field. A replaced file is picked up on the next
-call. The passwords are not shown again after saving; when editing, leave them empty to keep the stored ones as long
-as the path stays the same.
-
-With **Token exchange**, the calls to the Keycloak token endpoint present the client certificate too. For the Keycloak
-token endpoint GZAC trusts the server certificate you configured as well as the publicly trusted ones, so a Keycloak
-with a public certificate is still reached. With **SAML token service**, only the token service gets the certificates,
-and only the configured server certificate is trusted there (see above).
-
-To stop using certificates, turn the toggle off and save. The certificates are removed. Stored private keys and
-passwords stay saved but are no longer used: to use certificates again, fill in the certificate and its key (or the
-keystore path and its password) again.
-
-**Save configuration** stays disabled until the configuration is complete: required fields filled in (fields with
-only spaces count as empty), a token endpoint that is an `http(s)://` URL, a valid header name, certificates and a
-private key in PEM format (with their line breaks), and a password for every keystore path. Fields marked
-*(required)* must be filled in; a value in the wrong format is not marked, it only keeps **Save configuration**
-disabled. Spaces around values that aren't secret are removed when saving.
-
-When saving, GZAC also checks what the screen can't, such as whether the private key belongs to the client
-certificate. If it refuses, the screen shows a general error ("An unexpected error occurred") with a reference ID. Look that ID up
-in the application log: the stack trace of that entry names the property (see
-[Configuration files](#configuration-files) for the field of each property).
-
-### Using it in a ZGW API plugin
-
-1. Create a configuration of this plugin as described above, with the authentication type the API expects.
-2. Open the configuration of the ZGW API plugin (for example **Zaken API** or **Objecten API**) and select your
-   configuration in its authentication field.
-
-## Configuration files
-
-Configurations can also be deployed with a `*.pluginconfig.json` file. These are checked in the same way as in the
-screen, on every start; an invalid configuration stops the application from starting. Keystore files are not read at
-that moment. The property names are:
-
-| Property             | Field in the screen                    | Values                                              |
-|----------------------|----------------------------------------|-----------------------------------------------------|
-| `authenticationType` | Authentication type                    | `ZGW_JWT`, `TOKEN`, `BEARER`, `HEADER`, `TOKEN_EXCHANGE`, `BASIC`, `BEARER_AND_API_KEY`, `SAML_TOKEN` or `NONE` |
-| `clientId`           | Client ID                              |                                                     |
-| `username`           | Username (Basic)                       |                                                     |
-| `authSecret`         | Client secret (ZGW JWT) / Authentication secret / Password |                                 |
-| `authHeaderName`     | Authentication header name / Header for the token (SAML) |                                   |
-| `tokenEndpoint`      | Token endpoint URL / SAML token service URL | URL                                            |
-| `connectionTimeout`  | Connection timeout (SAML)              | Milliseconds, optional (default 10000)              |
-| `responseTimeout`    | Response timeout (SAML)                | Milliseconds, optional (default 10000)              |
-| `clientSecret`       | Client secret (token exchange)         |                                                     |
-| `audience`           | Audience                               |                                                     |
-| `scope`              | Scope                                  | Optional                                            |
-| `clientCertificate`  | Client certificate (PEM)               | PEM text, with line breaks written as `\n`          |
-| `clientPrivateKey`   | Client certificate private key (PEM)   | PEM text, with line breaks written as `\n`          |
-| `serverCertificate`  | Server certificate (PEM)               | PEM text, with line breaks written as `\n`          |
-| `keystorePath`       | Keystore path                          | Path of a JKS or PKCS12 file                        |
-| `keystoreSecret`     | Keystore password                      |                                                     |
-| `truststorePath`     | Truststore path                        | Path of a JKS or PKCS12 file                        |
-| `truststoreSecret`   | Truststore password                    |                                                     |
-
-See the [Example Application](example-application.md) for complete examples.
-
-## Using it from another plugin
-
-A plugin that calls an external API can let users pick a configuration of this plugin. Add a `@PluginProperty` of type
-`HttpClientAuthenticator`, and call `applyAuth` on the `RestClient.Builder` before making the call:
-
-```kotlin
-class SomeOtherPlugin(
-    private val httpClientAuthenticator: HttpClientAuthenticator?
-) {
-    fun callApi(): RestClient {
-        var builder = RestClient.builder()
-        httpClientAuthenticator?.let { builder = it.applyAuth(builder) }
-        return builder.build()
-    }
-}
-```
-
-A plugin that keeps its own connection (its own proxy, timeouts or redirect handling, or a client other than
-`RestClient`) takes the credentials and certificates instead, and works with every authentication type:
-
-```kotlin
-val client = HttpClient.newBuilder()
-    .apply { httpClientAuthenticator.sslContext()?.let(::sslContext) }
-    .build()
-val request = HttpRequest.newBuilder(uri)
-    .apply { httpClientAuthenticator.authenticationHeaders().forEach { name, values -> values.forEach { header(name, it) } } }
-```
-
-Ask `authenticationHeaders()` per request (a token is fetched or renewed when needed, which blocks), and send them only
-to the API this configuration is for. `sslContext()` is null without certificates; build the client once per
-`SSLContext`, which stays the same until the certificates change.
-
-Select it with a `@PluginProperty` typed as `HttpClientAuthenticator` (or one of the covered interfaces), or look
-configurations up by the key `http-client-authentication`, not by a plugin class: the class is generated when the
-application starts (see below).
-
-### What each covered interface gets
-
-| Interface                                       | Methods                                   | What a configuration provides                                                 |
-|-------------------------------------------------|-------------------------------------------|-------------------------------------------------------------------------------|
-| ZGW API authentication, `TokenAuthentication`  | `applyAuth(RestClient.Builder)`, `filter` | Credentials on every request, certificates through the request factory |
-| `HttpClientAuthenticator`                       | `applyAuth`, `authenticationHeaders()`, `sslContext()` | The same, or the credentials and certificates for the caller's own connection |
-| `HaalCentraalAuthentication` (both)             | `applyAuth`, `filter`, `getAuthenticatedHttpClient()` | The same; the reactor-netty client gets the certificates, the headers on every request and the timeouts |
-| `SuwinetAuth`                                   | `applyAuth(Client)` (Apache CXF, SOAP)    | Certificates on the HTTP conduit (a copy of its TLS parameters with the key and trust managers), headers on every message; the consumer's timeouts and headers stay |
-| `TokenExchangeAuthentication`                   | `getAccessToken()`, `getSslContext()`     | The bearer token of a type that has one (Bearer, Bearer and X-Api-Key, ZGW JWT, Token exchange, SAML token service; other types fail), and the certificates as `SSLContext` (or none) |
-| `MTlsSslContext`                                | `createSslContext()`                      | Only the certificates; the caller sends no credentials of this configuration, and it fails without certificates |
-
-With **SAML token service**, the certificates are never used for the API: `getSslContext()` returns none and
-`createSslContext()` fails.
-
-Known limits:
-
-- Plugins that look up a concrete plugin class instead of the category interface can't use this plugin, even though
-  they list it: `open-product` (its property is typed `TokenAuthenticationPlugin`) and the template list of `xential`
-  (it looks up `MTlsSslContextPlugin`).
-- Suwinet's verbose logging masks only the `Authorization` and `x-opentunnel-api-key` headers. A secret in another
-  header (`X-Api-Key`, or a custom **Header**) is logged when that logging is on, as with `suwinet-auth`.
-- `suwinet-auth` allowed a truststore without password; here a truststore needs its password.
-
-`applyAuth` sets the credentials on every request of the built client, and the certificates through the client's
-request factory. A configuration is also an `ExchangeFilterFunction` for a `WebClient`; that only sets the credentials,
-because a `WebClient` keeps its own connection settings.
-
-The plugin has no process actions.
-
-## How the plugin adapts to your application
-
-A plugin that selects an auth plugin only accepts a plugin that implements that auth plugin's interface, such as
-`ZakenApiAuthentication` or `SuwinetAuth`, and those interfaces live in other modules. So when the application starts,
-the plugin generates its plugin class,
-`com.ritense.valtimoplugins.httpclientauthentication.plugin.GeneratedHttpClientAuthenticationPlugin`, implementing
-exactly the covered interfaces on the classpath, and deploys its definition itself (Valtimo only finds plugin classes
-that exist as class files). An interface whose implementation needs a library that is missing (CXF for `SuwinetAuth`)
-is left out, with a warning in the log.
-
-When you add or remove a module, the next startup deploys the plugin with the categories of the new set; existing
-configurations keep working.
-
-If another library declares the plugin key `http-client-authentication` too (for example an older copy of this
-plugin), the application stops at startup with a message that names that class.
-
-## Upgrading to 3.1.0
-
-Nothing to change: configurations, properties and `*.pluginconfig.json` files stay as they are, unless a secret sent in
-a header has a control character or a character beyond Latin-1 within it (see [Authentication type](#authentication-type)):
-such a configuration is refused, and in a `*.pluginconfig.json` that stops the application from starting. The plugin class gets
-a new name (see above), so stop all nodes before starting `3.1.0`: nodes with another plugin version can't share the
-database. Code that looked the plugin up by class needs the interface or the key (as before).
-
-## Upgrading to 3.0.0
-
-`3.0.0` changes the plugin key from `http-client-authentication-plugin` to `http-client-authentication`, the key the
-Valtimo 12 versions use since `2.1.1-V12`, and the title to "Http Client Authentication". Existing configurations move
-to the new key when the application starts, with their secrets, and the plugins that use them keep working. A Valtimo
-12 application that upgrades to Valtimo 13 keeps its configurations too.
-
-- Update the backend and frontend together. The frontend `pluginId` must equal the backend key.
-- In `*.pluginconfig.json` files, change `pluginDefinitionKey` to `http-client-authentication` and keep the ids. A file
-  that still uses the old key stops the application from starting.
-- Code that looks the plugin up by its key needs the new key.
-- Stop all nodes before starting `3.0.0`: nodes with another plugin version can't share the database.
+# Http Client Authentication
 
+## What it does
+
+Many plugins in GZAC talk to an external system, such as Open Zaak, the Objecten API, Haal Centraal or Suwinet. That
+system wants to know who is calling. The Http Client Authentication plugin holds those login details in one place: a
+password, token or key, and, when the system asks for it, a certificate.
+
+You create a configuration of this plugin once, and then select it in the plugin that talks to the external system.
+
+You can select it in:
+
+- the **Zaken, Documenten, Catalogi, Besluiten, Notificaties, Objecten, Objecttypen and Klantinteracties API** plugins
+- **Haal Centraal** (BRP / BAG)
+- **Suwinet**
+- other plugins that ask for an authentication configuration, such as **Rotterdam Oracle EBS**
+
+The authentication plugins you may already use for these keep working. You choose which one to configure.
+
+## Creating a configuration
+
+1. Go to **Admin > Plugins** and click **Configure plugin**.
+2. Choose **Http Client Authentication**.
+3. Fill in a **Configuration name**, for example *Open Zaak login*.
+4. Choose the **Authentication type** (see below) and fill in its fields.
+5. Turn on **Certificates (mutual TLS)** only when the external system asks for a certificate (see below).
+6. Click **Save configuration**.
+
+The button only becomes available when everything required is filled in correctly. Fields marked *(required)* must be
+filled in.
+
+## Choosing the authentication type
+
+Ask the supplier or administrator of the external system which type it expects. Below the type you choose, the screen
+shows a short explanation.
+
+| Authentication type              | Typically used for                               | What you fill in                                       |
+|----------------------------------|--------------------------------------------------|--------------------------------------------------------|
+| **Bearer**                       | Systems that give you a fixed token              | **Authentication secret**: the token                   |
+| **Token**                        | Objecten, Objecttypen and Klantinteracties API   | **Authentication secret**: the API token               |
+| **Header**                       | Systems that give you an API key                 | **Authentication header name** (for example `X-Api-Key`) and **Authentication secret** |
+| **Bearer and X-Api-Key**         | Haal Centraal                                    | **Authentication secret**                              |
+| **Basic (username / password)**  | Suwinet and other systems with a username and password | **Username** and **Password**                    |
+| **Client ID / secret (ZGW JWT)** | Open Zaak, Open Notificaties and other ZGW APIs  | **Client ID** and **Client secret** (at least 32 characters) |
+| **Token exchange**               | Systems behind Keycloak, such as Haal Centraal   | **Token endpoint URL**, **Client ID**, **Client secret** and **Audience**; **Scope** is optional |
+| **SAML token service**           | Haal Centraal behind a SAML token service        | **SAML token service URL**; the other fields are optional |
+| **None**                         | Systems without a login                          | Nothing                                                |
+
+Tips:
+
+- **Client ID / secret (ZGW JWT)**: use the client ID and secret that are registered for GZAC in Open Zaak or Open
+  Notificaties.
+- **Token exchange**: the supplier gives you the token endpoint URL (it starts with `https://`) and the audience.
+- **SAML token service**: fill in the complete URL you received, ending in `?b64=true`, for example
+  `https://sts.example.com/sts/requestsecuritytoken/v1?b64=true`. Without `?b64=true` calls fail. Fill in **Header for
+  the token** only when the supplier names one.
+- **Username** can't contain a colon (`:`).
+- A token, key or secret can't contain line breaks or special characters such as `€`.
+
+## Certificates (mutual TLS)
+
+Some systems only accept calls from GZAC when it shows a certificate. Turn on **Certificates (mutual TLS)** when the
+supplier asks for this, or when they tell you their system uses its own (not publicly trusted) certificate.
+
+Under **Certificates as**, choose where the certificates come from. Ask your administrator which one applies.
+
+### PEM
+
+You paste the certificates as text into the screen. Each one starts with a line like `-----BEGIN CERTIFICATE-----`.
+Paste the whole text, including that first and last line.
+
+- **Client certificate (PEM)**: the certificate GZAC shows to the external system.
+- **Client certificate private key (PEM)**: the private key that belongs to that certificate. It starts with
+  `-----BEGIN PRIVATE KEY-----`. A key protected with a password can't be used.
+- **Server certificate (PEM, optional)**: only needed when the external system uses its own certificate. When you
+  fill it in, GZAC trusts only that certificate for this configuration.
+
+Don't paste the private key in the client certificate field. The screen won't let you save it.
+
+### Keystore (JKS / PKCS12)
+
+The certificates are in files on the GZAC server. Your administrator places them there and tells you where they are.
+
+- **Keystore path** and **Keystore password**: the file with the client certificate and its key.
+- **Truststore path** and **Truststore password**: optional, the file with the certificates to trust. A truststore
+  needs its password.
+
+GZAC only opens these files when it makes its first call. A wrong path or password doesn't show up when saving, but as
+an error on that first call.
+
+### Turning certificates off
+
+Turn the toggle off and save. The certificates are removed. To use them again later, fill them in again, including
+the private key or passwords.
+
+## Using the configuration in another plugin
+
+1. Open the configuration of the plugin that talks to the external system, for example **Zaken API** or **Objecten
+   API**, under **Admin > Plugins**.
+2. In its authentication field, select the configuration you created.
+3. Save.
+
+Which type to choose per plugin:
+
+| Plugin                                    | Authentication type                                                |
+|-------------------------------------------|--------------------------------------------------------------------|
+| Zaken, Documenten, Catalogi, Besluiten and Notificaties API | **Client ID / secret (ZGW JWT)**                 |
+| Objecten, Objecttypen and Klantinteracties API | **Token**                                                     |
+| Haal Centraal                             | **Bearer and X-Api-Key**, **Header**, **Token exchange** or **SAML token service**, as the supplier tells you |
+| Suwinet                                   | **Basic (username / password)**, **Header** or **None**; for a certificate, any type except **SAML token service**, with certificates as keystore |
+| Rotterdam Oracle EBS                      | Any type except **SAML token service**, with certificates          |
+
+Several plugins can use the same configuration.
+
+Some plugins show this plugin in their list but can't use it: **Open Product**, and the template list of **Xential**.
+Use their own authentication plugin there.
+
+## Editing a configuration
+
+Passwords, secrets and private keys are not shown again after saving. When you edit a configuration, leave those
+fields empty to keep what is stored. Fill them in again when you:
+
+- switch to another authentication type
+- paste a new client certificate (fill in its private key too)
+- change a keystore or truststore path (fill in its password too)
+
+## When saving fails
+
+The screen checks most things itself and keeps **Save configuration** unavailable until they are right. Some things
+are only checked by the server, for example whether the private key belongs to the client certificate. If the server
+refuses, you see "An unexpected error occurred" with a reference ID. Pass that ID on to your administrator: it tells
+them which field is wrong.

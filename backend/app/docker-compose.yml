@@ -311,7 +311,7 @@ services:
         condition: service_healthy
 
   # Gateway that demands a client certificate (mutual TLS), for testing the Http Client Authentication plugin.
-  # Certificates: imports/mtls-gateway/generate-certs.sh. See documentation/example-application.md.
+  # Certificates: imports/mtls-gateway/generate-certs.sh.
   mtls-gateway:
     image: nginx:1.30.6-alpine
     container_name: plugin-docker-compose-mtls-gateway
