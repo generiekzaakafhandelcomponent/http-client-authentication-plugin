@@ -108,6 +108,8 @@ dependencies {
     testImplementation("io.github.oshai:kotlin-logging:$kotlinLoggingVersion")
     // To compare the ZGW JWT with Valtimo's
     testImplementation("com.ritense.valtimo:openzaak-plugin-authentication")
+    // Valtimo's request logging, kept away from the token endpoint
+    testImplementation("com.ritense.valtimo:web")
 }
 
 configurations.testImplementation { extendsFrom(integrationTestCommon) }

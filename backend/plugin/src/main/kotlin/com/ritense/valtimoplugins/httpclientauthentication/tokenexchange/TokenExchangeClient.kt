@@ -20,13 +20,17 @@ package com.ritense.valtimoplugins.httpclientauthentication.tokenexchange
 import com.ritense.valtimo.contract.annotation.SkipComponentScan
 import com.ritense.valtimoplugins.httpclientauthentication.exception.TokenExchangeException
 import io.github.oshai.kotlinlogging.KotlinLogging
+import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.http.client.ClientHttpRequestFactory
+import org.springframework.http.client.ClientHttpRequestInterceptor
 import org.springframework.stereotype.Component
 import org.springframework.util.LinkedMultiValueMap
 import org.springframework.util.MultiValueMap
+import org.springframework.web.client.HttpClientErrorException
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.RestClientException
+import org.springframework.web.client.RestClientResponseException
 import org.springframework.web.client.body
 
 /**
@@ -87,6 +91,8 @@ class TokenExchangeClient(
             try {
                 restClientBuilder
                     .clone()
+                    // The form holds the client secret and the response the token
+                    .requestInterceptors { interceptors -> interceptors.removeIf(::logsBodies) }
                     .apply { builder -> requestFactory?.let { builder.requestFactory(it) } }
                     .build()
                     .post()
@@ -96,8 +102,9 @@ class TokenExchangeClient(
                     .retrieve()
                     .body<TokenExchangeTokenResponse>()
             } catch (ex: RestClientException) {
-                logger.warn(ex) { "The $step request to $tokenEndpoint failed" }
-                throw TokenExchangeException("Could not obtain an access token via $step: ${ex.message}", ex)
+                val failure = withoutBody(ex)
+                logger.warn(failure) { "The $step request to $tokenEndpoint failed" }
+                throw TokenExchangeException("Could not obtain an access token via $step: ${failure.message}", failure)
             }
 
         if (response?.accessToken.isNullOrBlank()) {
@@ -110,6 +117,16 @@ class TokenExchangeClient(
         return response
     }
 
+    // An error response may echo the form, with the client secret: keep its status and headers, not its body. As
+    // HttpClientErrorException for every status, as Valtimo's request logging threw it before.
+    private fun withoutBody(ex: RestClientException): RestClientException {
+        if (ex !is RestClientResponseException) return ex
+        return HttpClientErrorException(ex.statusCode, ex.statusText, ex.responseHeaders ?: HttpHeaders(), null, null)
+    }
+
+    private fun logsBodies(interceptor: ClientHttpRequestInterceptor) =
+        interceptor.javaClass.name == BODY_LOGGING_INTERCEPTOR
+
     private fun formOf(vararg params: Pair<String, String?>): MultiValueMap<String, String> {
         val form = LinkedMultiValueMap<String, String>()
         params.forEach { (key, value) -> if (!value.isNullOrBlank()) form.add(key, value) }
@@ -121,5 +138,8 @@ class TokenExchangeClient(
         private const val GRANT_TYPE_CLIENT_CREDENTIALS = "client_credentials"
         private const val GRANT_TYPE_TOKEN_EXCHANGE = "urn:ietf:params:oauth:grant-type:token-exchange"
         private const val SUBJECT_TOKEN_TYPE_ACCESS_TOKEN = "urn:ietf:params:oauth:token-type:access_token"
+
+        // Valtimo's interceptor that logs request and response bodies at DEBUG
+        private const val BODY_LOGGING_INTERCEPTOR = "com.ritense.valtimo.web.logging.LoggingRestClientCustomizer"
     }
 }
