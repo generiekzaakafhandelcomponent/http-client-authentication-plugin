@@ -2,6 +2,17 @@
 
 Overzicht van wijzigingen per versie van de Http Client Authentication plugin.
 
+## 3.1.1
+
+Voor Valtimo 13.
+
+### Verbeteringen
+
+- **Token exchange zonder audience.** De **Audience** is nu optioneel. Laat je hem leeg, dan stuurt de plugin het token
+  van de client credentials zelf, zonder het in te wisselen. Zo werkt het type ook met **Microsoft Entra ID**.
+- **Client secret en token blijven uit de logging.** De request logging van Valtimo (op DEBUG) logt de aanvragen bij
+  het token endpoint niet meer. Een foutmelding van het token endpoint bevat de body van de response niet meer.
+
 ## 3.1.0
 
 Voor Valtimo 13.

@@ -25,8 +25,9 @@ import java.util.concurrent.CompletionException
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Keeps exchanged tokens until shortly before they expire. Plugin instances are rebuilt per use, so the tokens live
- * here instead. Concurrent requests for the same configuration wait for one exchange and share its result or failure.
+ * Keeps the tokens of the token endpoint (exchanged, or client credentials without an audience) until shortly before
+ * they expire. Plugin instances are rebuilt per use, so the tokens live here instead. Concurrent requests for the same
+ * configuration wait for one request and share its result or failure.
  */
 class TokenExchangeTokenCache(
     private val tokenExchangeClient: TokenExchangeClient,
@@ -78,7 +79,8 @@ class TokenExchangeTokenCache(
         config: TokenExchangeConfig,
         requestFactory: ClientHttpRequestFactory?,
     ): CachedAccessToken {
-        logger.debug { "Exchanging a new JWT via Keycloak token-exchange for audience '${config.audience}'" }
+        val forAudience = config.audience?.let { " for audience '$it'" }.orEmpty()
+        logger.debug { "Requesting a new token at ${config.tokenEndpoint}$forAudience" }
         val response = tokenExchangeClient.exchangeToken(config, requestFactory)
         return CachedAccessToken(requireNotNull(response.accessToken), response.expiresIn)
     }

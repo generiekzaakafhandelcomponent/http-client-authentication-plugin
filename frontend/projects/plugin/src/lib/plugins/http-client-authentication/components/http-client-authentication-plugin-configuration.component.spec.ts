@@ -136,7 +136,8 @@ describe('HttpClientAuthenticationPluginConfigurationComponent', () => {
         expect(isValid({authenticationType: 'ZGW_JWT', clientId: 'valtimo_client'})).toBeFalse();
         expect(isValid({authenticationType: 'TOKEN_EXCHANGE', ...tokenExchange})).toBeTrue();
         expect(isValid({authenticationType: 'TOKEN_EXCHANGE', ...tokenExchange, scope: 'openid'})).toBeTrue();
-        for (const field of ['tokenEndpoint', 'clientId', 'clientSecret', 'audience'] as const) {
+        expect(isValid({authenticationType: 'TOKEN_EXCHANGE', ...tokenExchange, audience: ''})).withContext('without audience').toBeTrue();
+        for (const field of ['tokenEndpoint', 'clientId', 'clientSecret'] as const) {
             expect(isValid({authenticationType: 'TOKEN_EXCHANGE', ...tokenExchange, [field]: ''})).withContext(field).toBeFalse();
         }
         expect(isValid({authenticationType: 'NONE'})).toBeTrue();
@@ -150,7 +151,7 @@ describe('HttpClientAuthenticationPluginConfigurationComponent', () => {
         expect(isValid({authenticationType: 'ZGW_JWT', clientId: '   ', authSecret: clientSecret})).toBeFalse();
         expect(isValid({authenticationType: 'ZGW_JWT', clientId: 'valtimo_client', authSecret: ' '.repeat(32)})).toBeFalse();
         expect(isValid({authenticationType: 'TOKEN_EXCHANGE', ...tokenExchange, tokenEndpoint: 'not a url'})).toBeFalse();
-        expect(isValid({authenticationType: 'TOKEN_EXCHANGE', ...tokenExchange, audience: '   '})).toBeFalse();
+        expect(isValid({authenticationType: 'TOKEN_EXCHANGE', ...tokenExchange, clientId: '   '})).toBeFalse();
 
         component.tlsEnabledChange(true);
         expect(isValid({authenticationType: 'NONE', clientCertificate: 'hello', clientPrivateKey: privateKey})).toBeFalse();

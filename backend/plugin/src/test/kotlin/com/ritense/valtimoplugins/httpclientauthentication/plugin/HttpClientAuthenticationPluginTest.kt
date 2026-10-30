@@ -728,6 +728,37 @@ internal class HttpClientAuthenticationPluginTest {
                 listOf(TlsFixtures.CLIENT_SUBJECT, TlsFixtures.CLIENT_SUBJECT),
                 keycloak.receivedRequests.map { it.clientCertificateSubject },
             )
+            // With an audience the client credentials token is exchanged
+            val exchange = keycloak.receivedRequests.last().body
+            val grantType = "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Atoken-exchange"
+            assertTrue(exchange.contains(grantType), exchange)
+            assertTrue(exchange.contains("audience=haal-centraal"), exchange)
+        }
+    }
+
+    @Test
+    fun `should send the client credentials token itself without an audience, as for Microsoft Entra ID`() {
+        val entra =
+            MtlsTestServer(
+                responses = mapOf("POST /token" to """{"access_token":"client-credentials-token","expires_in":300}"""),
+            )
+        entra.use {
+            val plugin =
+                tokenExchangePlugin(TokenExchangeTokenCache(TokenExchangeClient(RestClient.builder()))) {
+                    tokenEndpoint = URI("${entra.baseUrl}/token")
+                    audience = "  "
+                    scope = "https://graph.microsoft.com/.default"
+                    clientCertificate = TlsFixtures.CLIENT_CERTIFICATE
+                    clientPrivateKey = TlsFixtures.CLIENT_PRIVATE_KEY
+                    serverCertificate = TlsFixtures.CA_CERTIFICATE
+                }
+
+            assertEquals("Bearer client-credentials-token", headersOf(plugin).getFirst(HttpHeaders.AUTHORIZATION))
+            val request = entra.receivedRequests.single()
+            assertTrue(request.body.contains("grant_type=client_credentials"), request.body)
+            assertTrue(request.body.contains("scope=https%3A%2F%2Fgraph.microsoft.com%2F.default"), request.body)
+            assertFalse(request.body.contains("audience"), request.body)
+            assertEquals(TlsFixtures.CLIENT_SUBJECT, request.clientCertificateSubject)
         }
     }
 
