@@ -732,6 +732,31 @@ internal class HttpClientAuthenticationPluginTest {
     }
 
     @Test
+    fun `should send the client credentials token itself without an audience, as for Microsoft Entra ID`() {
+        val entra =
+            MtlsTestServer(
+                responses = mapOf("POST /token" to """{"access_token":"client-credentials-token","expires_in":300}"""),
+            )
+        entra.use {
+            val plugin =
+                tokenExchangePlugin(TokenExchangeTokenCache(TokenExchangeClient(RestClient.builder()))) {
+                    tokenEndpoint = URI("${entra.baseUrl}/token")
+                    audience = "  "
+                    scope = "https://graph.microsoft.com/.default"
+                    clientCertificate = TlsFixtures.CLIENT_CERTIFICATE
+                    clientPrivateKey = TlsFixtures.CLIENT_PRIVATE_KEY
+                    serverCertificate = TlsFixtures.CA_CERTIFICATE
+                }
+
+            assertEquals("Bearer client-credentials-token", headersOf(plugin).getFirst(HttpHeaders.AUTHORIZATION))
+            val request = entra.receivedRequests.single()
+            assertTrue(request.body.contains("grant_type=client_credentials"), request.body)
+            assertFalse(request.body.contains("audience"), request.body)
+            assertEquals(TlsFixtures.CLIENT_SUBJECT, request.clientCertificateSubject)
+        }
+    }
+
+    @Test
     fun `should not fall back to the JVM trust for the API calls`() {
         val cache = TlsRequestFactoryCache(restClientProperties, trustManagerOf(TlsFixtures.CA_CERTIFICATE))
         MtlsTestServer().use { server ->

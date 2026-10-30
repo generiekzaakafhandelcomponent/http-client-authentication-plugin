@@ -30,10 +30,10 @@ import org.springframework.web.client.RestClientException
 import org.springframework.web.client.body
 
 /**
- * Generic Keycloak/OIDC "client_credentials" + "token-exchange" client.
+ * Generic OAuth2 "client_credentials" client, followed by an RFC 8693 "token-exchange" (as Keycloak does it) when an
+ * audience is set. Without an audience the client_credentials token is returned, e.g. for Microsoft Entra ID.
  *
- * This class has no knowledge of Haal Centraal, or of any other API that ends up consuming the
- * exchanged token. Any plugin that needs to authenticate via Keycloak token-exchange can reuse it.
+ * This class has no knowledge of Haal Centraal, or of any other API that ends up consuming the token.
  */
 @Component
 @SkipComponentScan
@@ -60,6 +60,7 @@ class TokenExchangeClient(
                 "client_credentials",
                 requestFactory,
             )
+        val audience = config.audience?.takeIf { it.isNotBlank() } ?: return subjectToken
 
         return requestToken(
             config.tokenEndpoint,
@@ -69,7 +70,7 @@ class TokenExchangeClient(
                 "client_secret" to config.clientSecret,
                 "subject_token" to subjectToken.accessToken,
                 "subject_token_type" to SUBJECT_TOKEN_TYPE_ACCESS_TOKEN,
-                "audience" to config.audience,
+                "audience" to audience,
             ),
             "token-exchange",
             requestFactory,

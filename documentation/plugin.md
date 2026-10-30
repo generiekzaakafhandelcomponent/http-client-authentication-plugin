@@ -42,7 +42,7 @@ shows a short explanation.
 | **Bearer and X-Api-Key**         | Haal Centraal                                    | **Authentication secret**                              |
 | **Basic (username / password)**  | Suwinet and other systems with a username and password | **Username** and **Password**                    |
 | **Client ID / secret (ZGW JWT)** | Open Zaak, Open Notificaties and other ZGW APIs  | **Client ID** and **Client secret** (at least 32 characters) |
-| **Token exchange**               | Systems behind Keycloak, such as Haal Centraal   | **Token endpoint URL**, **Client ID**, **Client secret** and **Audience**; **Scope** is optional |
+| **Token exchange**               | Systems behind Keycloak (such as Haal Centraal) or Microsoft Entra ID | **Token endpoint URL**, **Client ID** and **Client secret**; **Audience** and **Scope** are optional |
 | **SAML token service**           | Haal Centraal behind a SAML token service        | **SAML token service URL**; the other fields are optional |
 | **None**                         | Systems without a login                          | Nothing                                                |
 
@@ -50,7 +50,8 @@ Tips:
 
 - **Client ID / secret (ZGW JWT)**: use the client ID and secret that are registered for GZAC in Open Zaak or Open
   Notificaties.
-- **Token exchange**: the supplier gives you the token endpoint URL (it starts with `https://`) and the audience.
+- **Token exchange**: the supplier gives you the token endpoint URL (it starts with `https://`) and, for Keycloak, the
+  audience. Leave **Audience** empty to send the client credentials token itself, as with Microsoft Entra ID.
 - **SAML token service**: fill in the complete URL you received, ending in `?b64=true`, for example
   `https://sts.example.com/sts/requestsecuritytoken/v1?b64=true`. Without `?b64=true` calls fail. Fill in **Header for
   the token** only when the supplier names one.

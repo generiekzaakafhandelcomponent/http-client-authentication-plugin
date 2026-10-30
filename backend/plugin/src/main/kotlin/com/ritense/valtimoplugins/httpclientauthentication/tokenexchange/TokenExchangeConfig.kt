@@ -20,12 +20,12 @@ package com.ritense.valtimoplugins.httpclientauthentication.tokenexchange
 import java.net.URI
 
 /**
- * Configuration for a Keycloak-style client_credentials + token-exchange flow.
+ * Configuration for a client_credentials request, followed by a token exchange when [audience] is set.
  */
 data class TokenExchangeConfig(
     val tokenEndpoint: URI,
     val clientId: String,
     val clientSecret: String,
-    val audience: String,
+    val audience: String? = null,
     val scope: String? = null,
 )
