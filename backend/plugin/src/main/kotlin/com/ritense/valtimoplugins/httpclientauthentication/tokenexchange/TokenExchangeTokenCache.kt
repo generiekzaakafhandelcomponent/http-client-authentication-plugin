@@ -79,13 +79,8 @@ class TokenExchangeTokenCache(
         config: TokenExchangeConfig,
         requestFactory: ClientHttpRequestFactory?,
     ): CachedAccessToken {
-        logger.debug {
-            "Requesting a new token at ${config.tokenEndpoint}" +
-                config.audience
-                    ?.takeIf { it.isNotBlank() }
-                    ?.let { " for audience '$it'" }
-                    .orEmpty()
-        }
+        val forAudience = config.audience?.let { " for audience '$it'" }.orEmpty()
+        logger.debug { "Requesting a new token at ${config.tokenEndpoint}$forAudience" }
         val response = tokenExchangeClient.exchangeToken(config, requestFactory)
         return CachedAccessToken(requireNotNull(response.accessToken), response.expiresIn)
     }

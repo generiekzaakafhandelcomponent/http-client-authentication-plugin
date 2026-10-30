@@ -20,8 +20,8 @@ package com.ritense.valtimoplugins.httpclientauthentication.tokenexchange
 import java.time.Instant
 
 /**
- * Holds an exchanged access token together with the moment it was issued, so it can be reused
- * until shortly before Keycloak considers it expired.
+ * Holds an access token of the token endpoint together with the moment it was issued, so it can be reused
+ * until shortly before the token endpoint considers it expired.
  */
 class CachedAccessToken(
     val accessToken: String,

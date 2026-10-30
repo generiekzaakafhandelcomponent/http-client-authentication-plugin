@@ -96,14 +96,14 @@ class TokenExchangeClient(
                     .retrieve()
                     .body<TokenExchangeTokenResponse>()
             } catch (ex: RestClientException) {
-                logger.warn(ex) { "Keycloak $step request to $tokenEndpoint failed" }
-                throw TokenExchangeException("Could not obtain a JWT token via Keycloak $step: ${ex.message}", ex)
+                logger.warn(ex) { "The $step request to $tokenEndpoint failed" }
+                throw TokenExchangeException("Could not obtain an access token via $step: ${ex.message}", ex)
             }
 
         if (response?.accessToken.isNullOrBlank()) {
             val reason = response?.errorDescription ?: response?.error ?: "no access_token in response"
             throw TokenExchangeException(
-                "Keycloak $step at $tokenEndpoint did not return a valid access token: $reason",
+                "The $step request to $tokenEndpoint did not return a valid access token: $reason",
             )
         }
 

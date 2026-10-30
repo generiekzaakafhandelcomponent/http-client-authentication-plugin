@@ -728,6 +728,11 @@ internal class HttpClientAuthenticationPluginTest {
                 listOf(TlsFixtures.CLIENT_SUBJECT, TlsFixtures.CLIENT_SUBJECT),
                 keycloak.receivedRequests.map { it.clientCertificateSubject },
             )
+            // With an audience the client credentials token is exchanged
+            val exchange = keycloak.receivedRequests.last().body
+            val grantType = "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Atoken-exchange"
+            assertTrue(exchange.contains(grantType), exchange)
+            assertTrue(exchange.contains("audience=haal-centraal"), exchange)
         }
     }
 
@@ -751,6 +756,7 @@ internal class HttpClientAuthenticationPluginTest {
             assertEquals("Bearer client-credentials-token", headersOf(plugin).getFirst(HttpHeaders.AUTHORIZATION))
             val request = entra.receivedRequests.single()
             assertTrue(request.body.contains("grant_type=client_credentials"), request.body)
+            assertTrue(request.body.contains("scope=https%3A%2F%2Fgraph.microsoft.com%2F.default"), request.body)
             assertFalse(request.body.contains("audience"), request.body)
             assertEquals(TlsFixtures.CLIENT_SUBJECT, request.clientCertificateSubject)
         }
