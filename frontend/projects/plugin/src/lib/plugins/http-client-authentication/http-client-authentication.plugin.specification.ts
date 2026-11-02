@@ -60,7 +60,7 @@ const httpClientAuthenticationPluginSpecification: PluginSpecification = {
             'authenticationTypeDescription.ZGW_JWT':
                 'Ondertekent bij elke call een JWT met de client ID en het secret, met daarin de gebruiker die de call doet. Voor Open Zaak, Open Notificaties en andere ZGW API\'s.',
             'authenticationTypeDescription.TOKEN_EXCHANGE':
-                'Haalt met de client ID en het secret een token op bij Keycloak, wisselt dat in voor een token voor de audience en stuurt dat als bearer token.',
+                'Haalt met de client ID en het secret een token op bij het token endpoint en stuurt dat als bearer token. Met een audience wisselt het dat eerst in voor een token voor de audience (token exchange, zoals Keycloak dat doet).',
             'authenticationTypeDescription.SAML_TOKEN':
                 'Vraagt bij elke call een SAML-token op bij een WS-Trust token service en stuurt dat als bearer token of in een header die je opgeeft.',
             'authenticationTypeDescription.NONE':
@@ -75,10 +75,10 @@ const httpClientAuthenticationPluginSpecification: PluginSpecification = {
             tokenEndpoint: 'Token endpoint URL',
             tokenEndpointPlaceholder: 'https://keycloak.example.com/realms/example/protocol/openid-connect/token',
             tokenEndpointTooltip:
-                'Het token endpoint van Keycloak. GZAC haalt hier met client credentials een token op en wisselt dat in voor een token voor de audience.',
+                'Het token endpoint, bijvoorbeeld van Keycloak of Microsoft Entra ID. GZAC haalt hier met client credentials een token op en wisselt dat, als er een audience is, in voor een token voor de audience.',
             audience: 'Audience',
             audiencePlaceholder: 'haal-centraal',
-            audienceTooltip: 'De client in Keycloak waarvoor het token wordt ingewisseld, meestal die van de API.',
+            audienceTooltip: 'Optioneel. De client in Keycloak waarvoor het token wordt ingewisseld, meestal die van de API. Laat leeg om het token van de client credentials zelf te sturen, zoals bij Microsoft Entra ID.',
             scope: 'Scope',
             scopePlaceholder: 'openid',
             scopeTooltip: 'Optioneel. Wordt meegestuurd bij het ophalen van het eerste token.',
@@ -147,7 +147,7 @@ const httpClientAuthenticationPluginSpecification: PluginSpecification = {
             'authenticationTypeDescription.ZGW_JWT':
                 'Signs a JWT with the client ID and secret on every call, carrying the user who makes the call. For Open Zaak, Open Notificaties and other ZGW APIs.',
             'authenticationTypeDescription.TOKEN_EXCHANGE':
-                'Gets a token from Keycloak with the client ID and secret, exchanges it for a token for the audience and sends that as bearer token.',
+                'Gets a token from the token endpoint with the client ID and secret and sends that as bearer token. With an audience it first exchanges it for a token for the audience (token exchange, as Keycloak does it).',
             'authenticationTypeDescription.SAML_TOKEN':
                 'Requests a SAML token from a WS-Trust token service on every call and sends it as bearer token or in a header you name.',
             'authenticationTypeDescription.NONE':
@@ -162,10 +162,10 @@ const httpClientAuthenticationPluginSpecification: PluginSpecification = {
             tokenEndpoint: 'Token endpoint URL',
             tokenEndpointPlaceholder: 'https://keycloak.example.com/realms/example/protocol/openid-connect/token',
             tokenEndpointTooltip:
-                'The Keycloak token endpoint. GZAC gets a token with client credentials here and exchanges it for a token for the audience.',
+                'The token endpoint, e.g. of Keycloak or Microsoft Entra ID. GZAC gets a token with client credentials here and, when there is an audience, exchanges it for a token for the audience.',
             audience: 'Audience',
             audiencePlaceholder: 'haal-centraal',
-            audienceTooltip: 'The Keycloak client the token is exchanged for, usually the one of the API.',
+            audienceTooltip: 'Optional. The Keycloak client the token is exchanged for, usually the one of the API. Leave empty to send the client credentials token itself, as with Microsoft Entra ID.',
             scope: 'Scope',
             scopePlaceholder: 'openid',
             scopeTooltip: 'Optional. Sent when getting the first token.',

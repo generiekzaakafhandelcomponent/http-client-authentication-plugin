@@ -256,7 +256,7 @@ export class HttpClientAuthenticationPluginConfigurationComponent
                     && (!filled(formValue.authSecret) || formValue.authSecret.length >= 32);
             case this.tokenExchangeRadio.value:
                 return HTTP_URL.test(formValue.tokenEndpoint?.trim() ?? '') && filled(formValue.clientId)
-                    && filled(formValue.audience) && (filled(formValue.clientSecret) || typeUnchanged);
+                    && (filled(formValue.clientSecret) || typeUnchanged);
             case this.noneRadio.value:
                 return true;
             default:

@@ -237,7 +237,7 @@ abstract class HttpClientAuthenticationPluginBase(
                 tokenEndpoint = requireNotNull(tokenEndpoint),
                 clientId = required(clientId),
                 clientSecret = required(clientSecret),
-                audience = required(audience),
+                audience = audience?.takeIf { it.isNotBlank() },
                 scope = scope?.takeIf { it.isNotBlank() },
             )
         // The token endpoint gets the client certificate too
@@ -311,7 +311,6 @@ abstract class HttpClientAuthenticationPluginBase(
                     "tokenEndpoint" to tokenEndpoint?.toString(),
                     "clientId" to clientId,
                     "clientSecret" to clientSecret,
-                    "audience" to audience,
                 )
             AuthenticationType.BASIC -> listOf("username" to username, "authSecret" to authSecret)
             AuthenticationType.SAML_TOKEN -> listOf("tokenEndpoint" to tokenEndpoint?.toString())

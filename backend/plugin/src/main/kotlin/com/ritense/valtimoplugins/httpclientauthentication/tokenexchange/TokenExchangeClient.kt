@@ -20,20 +20,24 @@ package com.ritense.valtimoplugins.httpclientauthentication.tokenexchange
 import com.ritense.valtimo.contract.annotation.SkipComponentScan
 import com.ritense.valtimoplugins.httpclientauthentication.exception.TokenExchangeException
 import io.github.oshai.kotlinlogging.KotlinLogging
+import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.http.client.ClientHttpRequestFactory
+import org.springframework.http.client.ClientHttpRequestInterceptor
 import org.springframework.stereotype.Component
 import org.springframework.util.LinkedMultiValueMap
 import org.springframework.util.MultiValueMap
+import org.springframework.web.client.HttpClientErrorException
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.RestClientException
+import org.springframework.web.client.RestClientResponseException
 import org.springframework.web.client.body
 
 /**
- * Generic Keycloak/OIDC "client_credentials" + "token-exchange" client.
+ * Generic OAuth2 "client_credentials" client, followed by an RFC 8693 "token-exchange" (as Keycloak does it) when an
+ * audience is set. Without an audience the client_credentials token is returned, e.g. for Microsoft Entra ID.
  *
- * This class has no knowledge of Haal Centraal, or of any other API that ends up consuming the
- * exchanged token. Any plugin that needs to authenticate via Keycloak token-exchange can reuse it.
+ * This class has no knowledge of Haal Centraal, or of any other API that ends up consuming the token.
  */
 @Component
 @SkipComponentScan
@@ -60,6 +64,7 @@ class TokenExchangeClient(
                 "client_credentials",
                 requestFactory,
             )
+        val audience = config.audience?.takeIf { it.isNotBlank() } ?: return subjectToken
 
         return requestToken(
             config.tokenEndpoint,
@@ -69,7 +74,7 @@ class TokenExchangeClient(
                 "client_secret" to config.clientSecret,
                 "subject_token" to subjectToken.accessToken,
                 "subject_token_type" to SUBJECT_TOKEN_TYPE_ACCESS_TOKEN,
-                "audience" to config.audience,
+                "audience" to audience,
             ),
             "token-exchange",
             requestFactory,
@@ -86,6 +91,8 @@ class TokenExchangeClient(
             try {
                 restClientBuilder
                     .clone()
+                    // The form holds the client secret and the response the token
+                    .requestInterceptors { interceptors -> interceptors.removeIf(::logsBodies) }
                     .apply { builder -> requestFactory?.let { builder.requestFactory(it) } }
                     .build()
                     .post()
@@ -95,19 +102,30 @@ class TokenExchangeClient(
                     .retrieve()
                     .body<TokenExchangeTokenResponse>()
             } catch (ex: RestClientException) {
-                logger.warn(ex) { "Keycloak $step request to $tokenEndpoint failed" }
-                throw TokenExchangeException("Could not obtain a JWT token via Keycloak $step: ${ex.message}", ex)
+                val failure = withoutBody(ex)
+                logger.warn(failure) { "The $step request to $tokenEndpoint failed" }
+                throw TokenExchangeException("Could not obtain an access token via $step: ${failure.message}", failure)
             }
 
         if (response?.accessToken.isNullOrBlank()) {
             val reason = response?.errorDescription ?: response?.error ?: "no access_token in response"
             throw TokenExchangeException(
-                "Keycloak $step at $tokenEndpoint did not return a valid access token: $reason",
+                "The $step request to $tokenEndpoint did not return a valid access token: $reason",
             )
         }
 
         return response
     }
+
+    // An error response may echo the form, with the client secret: keep its status and headers, not its body. As
+    // HttpClientErrorException for every status, as Valtimo's request logging threw it before.
+    private fun withoutBody(ex: RestClientException): RestClientException {
+        if (ex !is RestClientResponseException) return ex
+        return HttpClientErrorException(ex.statusCode, ex.statusText, ex.responseHeaders ?: HttpHeaders(), null, null)
+    }
+
+    private fun logsBodies(interceptor: ClientHttpRequestInterceptor) =
+        interceptor.javaClass.name == BODY_LOGGING_INTERCEPTOR
 
     private fun formOf(vararg params: Pair<String, String?>): MultiValueMap<String, String> {
         val form = LinkedMultiValueMap<String, String>()
@@ -120,5 +138,8 @@ class TokenExchangeClient(
         private const val GRANT_TYPE_CLIENT_CREDENTIALS = "client_credentials"
         private const val GRANT_TYPE_TOKEN_EXCHANGE = "urn:ietf:params:oauth:grant-type:token-exchange"
         private const val SUBJECT_TOKEN_TYPE_ACCESS_TOKEN = "urn:ietf:params:oauth:token-type:access_token"
+
+        // Valtimo's interceptor that logs request and response bodies at DEBUG
+        private const val BODY_LOGGING_INTERCEPTOR = "com.ritense.valtimo.web.logging.LoggingRestClientCustomizer"
     }
 }
